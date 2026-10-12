@@ -1,0 +1,13 @@
+# Bundle patch for `dsh plugin add` / profile bundles.
+# Plugin row uses the package name so Node resolves the installed/linked package.
+
+- insert:
+    - id: greet
+      name: dsh-plugin
+      config:
+        greeting: 'Hey'
+        preDenyNames:
+          - forbidden
+        postBlockNames:
+          - Ada5
+          - Ada6
