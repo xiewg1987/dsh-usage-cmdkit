@@ -1,27 +1,39 @@
 // 独立插件：注册 greet；门禁名单来自 Config；post-execute 改写；result 打日志。
-// 源码联调：在 deepseek-harness 根目录
+//
+// 源码联调（仅 Host / 工具逻辑）：
+//   cd D:\ScriptProject\deepseek-harness
 //   pnpm dsh web --patch ../dsh-plugin/patch.dev.yml
-// 安装进 profile：
+//
+// Web 配置卡片（浏览器半）要求 Loader 行说明符是裸包名 `dsh-plugin`，
+// 源码路径 `./src/hello-plugin.ts` 不会挂上 ./client。装进 profile 后联调：
 //   dsh plugin --profile <name> add D:/ScriptProject/dsh-plugin
-import type { Context } from '@deepseek-ai/cordis'
+//   # 然后用带 web 的 profile 启动；Plugins → 本包 → greet 行 → Configure
+import type { Context, Volatile } from '@deepseek-ai/cordis'
+// 侧效应类型导入：把 loader/volatile-update 并入 Context 的 Events。
+import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type { PostToolDecision, PreToolDecision, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import Schema from '@deepseek-ai/schemastery'
 
-// 用户可在 patch 的 config: 下覆盖这些字段（改名单不必改源码）。
+/**
+ * 插件 Config。字段用 Volatile 包一层，才能进 Web Plugins 页的即时表单：
+ * - 普通字段只进 entry / patch，不会出现在 form.state
+ * - `.volatile()` 的字段才会被 Host 暴露给浏览器半的 form.state / form.mutate
+ */
 export interface Config {
-  greeting: string
+  greeting: Volatile<string>
   /** pre-execute deny：名单内的名字不跑 execute。 */
-  preDenyNames: string[]
+  preDenyNames: Volatile<string[]>
   /** post-execute block：先跑完 execute，再把成功改成错误反馈。 */
-  postBlockNames: string[]
+  postBlockNames: Volatile<string[]>
 }
 
-// Schemastery：加载时校验配置，缺省字段填默认值。
-export const Config: Schema<Config> = Schema.object({
-  greeting: Schema.string().default('Hello'),
-  preDenyNames: Schema.array(Schema.string()).default(['forbidden']),
-  postBlockNames: Schema.array(Schema.string()).default(['Ada5']),
+// Schemastery：加载时校验配置，缺省字段填默认值；.volatile() = 可被 Plugins 页改写。
+// 不要写成 Schema<Config>：Volatile 接口与 schema 推断类型冲突（见 cookbook）。
+export const Config = Schema.object({
+  greeting: Schema.string().default('Hello').volatile(),
+  preDenyNames: Schema.array(Schema.string()).default(['forbidden']).volatile(),
+  postBlockNames: Schema.array(Schema.string()).default(['Ada5']).volatile(),
 })
 
 export const name = 'greet-tool'
@@ -50,6 +62,16 @@ function nameInList(name: string | undefined, list: readonly string[]): boolean 
 }
 
 export function apply(ctx: Context, config: Config) {
+  // Volatile 字段用 .get() 读取「当前」值。Web 卡片保存后会触发
+  // loader/volatile-update；下次工具调用会读到新值，无需重挂插件。
+  ctx.on('loader/volatile-update', () => {
+    console.log(
+      `[greet-tool] config updated: greeting=${config.greeting.get()} `
+      + `preDeny=${JSON.stringify(config.preDenyNames.get())} `
+      + `postBlock=${JSON.stringify(config.postBlockNames.get())}`,
+    )
+  })
+
   // 注册模型可调用的工具：名称/描述/参数进入提示词；
   // execute 返回规范值；render 把它变成给模型看的文本。
   ctx.tools.register(defineTool({
@@ -63,16 +85,16 @@ export function apply(ctx: Context, config: Config) {
       render: (_args, value) => [{ type: 'text', text: value }],
     },
     async execute(args) {
-      // 这里 args 已有类型：{ name: string }。greeting 来自 Config。
-      return `${config.greeting}, ${args.name}!`
+      // 这里 args 已有类型：{ name: string }。greeting 来自 Config（Volatile）。
+      return `${config.greeting.get()}, ${args.name}!`
     },
   }))
 
   // 工具真正执行前的 waterfall：可 allow / deny / ask / cancel。
-  // 拒哪些名字由 config.preDenyNames 决定（见 patch），不是源码硬编码。
+  // 拒哪些名字由 config.preDenyNames 决定（见 patch / Web 卡片），不是源码硬编码。
   // next() = 交给后续策略链；想放行就必须调用它。
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next): Promise<PreToolDecision> => {
-    if (exec.name === 'greet' && nameInList(greetName(exec.arguments), config.preDenyNames)) {
+    if (exec.name === 'greet' && nameInList(greetName(exec.arguments), config.preDenyNames.get())) {
       // 不调用 next()：短路，greet 的 execute 不会跑。
       return { kind: 'deny', reason: 'this name is blocked' }
     }
@@ -85,7 +107,7 @@ export function apply(ctx: Context, config: Config) {
   // 可 accept（可替换 content 或 value）、block（改成错误反馈），或 next() 原样放行。
   // 这里改的是模型看到的工具结果（轨迹里可见），不是助手最终聊天气泡——那是模型另写的。
   ctx.on('tools/post-execute', async (exec: ToolExecution, result: ToolExecutionResult, next): Promise<PostToolDecision> => {
-    if (exec.name === 'greet' && nameInList(greetName(exec.arguments), config.postBlockNames)) {
+    if (exec.name === 'greet' && nameInList(greetName(exec.arguments), config.postBlockNames.get())) {
       return {
         kind: 'block',
         feedback: [{ type: 'text', text: `${String(result.value)} (post-execute block)` }],

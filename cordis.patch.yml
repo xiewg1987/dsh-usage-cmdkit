@@ -1,5 +1,7 @@
 # Bundle patch for `dsh plugin add` / profile bundles.
-# Plugin row uses the package name so Node resolves the installed/linked package.
+# Plugin row uses the bare package name so:
+#   - Node resolves the installed/linked package (Host half)
+#   - client module system attaches ./client (Web 配置卡片 → plugins.row.config 键 dsh-plugin#greet)
 
 - insert:
     - id: greet

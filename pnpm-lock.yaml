@@ -11,6 +11,21 @@ importers:
       '@deepseek-ai/cordis':
         specifier: link:../deepseek-harness/vendor/cordis
         version: link:../deepseek-harness/vendor/cordis
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: link:../deepseek-harness/vendor/loader
+        version: link:../deepseek-harness/vendor/loader
+      '@deepseek-ai/dsh-client-locale':
+        specifier: link:../deepseek-harness/packages/client/locale
+        version: link:../deepseek-harness/packages/client/locale
+      '@deepseek-ai/dsh-client-ui-plugin-manager':
+        specifier: link:../deepseek-harness/packages/client/ui-plugin-manager
+        version: link:../deepseek-harness/packages/client/ui-plugin-manager
+      '@deepseek-ai/dsh-client-ui-renderer':
+        specifier: link:../deepseek-harness/packages/client/ui-renderer
+        version: link:../deepseek-harness/packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: link:../deepseek-harness/packages/client/ui-slots
+        version: link:../deepseek-harness/packages/client/ui-slots
       '@deepseek-ai/dsh-tools':
         specifier: link:../deepseek-harness/packages/core/tools
         version: link:../deepseek-harness/packages/core/tools
@@ -20,6 +35,12 @@ importers:
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      react:
+        specifier: ^18.2.0
+        version: 18.2.0
       typescript:
         specifier: ~5.9.2
         version: 5.9.2
@@ -28,6 +49,26 @@ packages:
 
   '@types/node@26.6.5':
     resolution: {integrity: sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==}
+
+  '@types/prop-types@15.7.15':
+    resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
+
+  '@types/react@18.3.31':
+    resolution: {integrity: sha512-vfEqpXTvwT91yhmwdfouStN2hSKwTvyRs8qpLfADyrq/kxDw0hZM7Wk9Ug1FELj8hIby+S/+kQCSRFF32nv2Qw==}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  js-tokens@3.0.0:
+    resolution: {integrity: sha512-poXEQHPMmTrYZuJgNRll2sbc3kJsSU1m/g1Q93IE6txNj3p6xOOOmdj1G/zCVGawYSPzTkSoWGg1otqbeqKJeg==}
+
+  loose-envify@1.4.0:
+    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
+    hasBin: true
+
+  react@18.2.0:
+    resolution: {integrity: sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==}
+    engines: {node: '>=0.10.0'}
 
   typescript@5.9.2:
     resolution: {integrity: sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==}
@@ -42,6 +83,25 @@ snapshots:
   '@types/node@26.6.5':
     dependencies:
       undici-types: 8.9.0
+
+  '@types/prop-types@15.7.15': {}
+
+  '@types/react@18.3.31':
+    dependencies:
+      '@types/prop-types': 15.7.15
+      csstype: 3.2.3
+
+  csstype@3.2.3: {}
+
+  js-tokens@3.0.0: {}
+
+  loose-envify@1.4.0:
+    dependencies:
+      js-tokens: 3.0.0
+
+  react@18.2.0:
+    dependencies:
+      loose-envify: 1.4.0
 
   typescript@5.9.2: {}
 

@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Independent DeepSeek Harness plugin (greet tool + Config-driven gates). Develop and commit here, not in deepseek-harness.",
+  "description": "Independent DeepSeek Harness plugin (greet tool + Config-driven gates + Web config card). Develop and commit here, not in deepseek-harness.",
   "main": "./src/hello-plugin.ts",
   "exports": {
-    ".": "./src/hello-plugin.ts"
+    ".": "./src/hello-plugin.ts",
+    "./client": "./lib/client.js"
   },
   "files": [
     "src",
+    "lib",
     "cordis.patch.yml",
     "patch.dev.yml",
     "README.md"
@@ -17,10 +19,18 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
+      ]
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:client": "node scripts/build-client.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
@@ -28,9 +38,16 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "link:../deepseek-harness/vendor/cordis",
+    "@deepseek-ai/cordis-plugin-loader": "link:../deepseek-harness/vendor/loader",
+    "@deepseek-ai/dsh-client-locale": "link:../deepseek-harness/packages/client/locale",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../deepseek-harness/packages/client/ui-plugin-manager",
+    "@deepseek-ai/dsh-client-ui-renderer": "link:../deepseek-harness/packages/client/ui-renderer",
+    "@deepseek-ai/dsh-client-ui-slots": "link:../deepseek-harness/packages/client/ui-slots",
     "@deepseek-ai/dsh-tools": "link:../deepseek-harness/packages/core/tools",
     "@deepseek-ai/schemastery": "link:../deepseek-harness/vendor/schemastery",
     "@types/node": "^26.6.5",
+    "@types/react": "~18.3.1",
+    "react": "^18.2.0",
     "typescript": "~5.9.2"
   }
 }
