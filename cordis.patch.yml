@@ -1,7 +1,10 @@
-# dsh plugin add / profile：裸包名，便于以后挂 ./client
+# dsh plugin add / profile：裸包名才会加载 ./client（UI 配置卡）
 #   pnpm dsh plugin --profile web add D:/ScriptProject/dsh-plugin
+#   pnpm dsh web
 
 - insert:
-    - id: notes
+    - id: ui-demo
       name: dsh-plugin
-      config: {}
+      config:
+        panelTitle: '我的面板'
+        showHelperBanner: true

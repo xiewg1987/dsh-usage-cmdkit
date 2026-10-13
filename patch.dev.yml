@@ -1,12 +1,10 @@
-# Host 源码联调（不加载 client）：
+# Host 源码联调（不加载 client — 看不到 Plugins 配置卡）：
 #   cd D:\ScriptProject\deepseek-harness
 #   pnpm dsh web --patch ../dsh-plugin/patch.dev.yml
 #
-# storagePath 默认 notes.txt → 写在「当前工作区绑定目录」下，不必每人写 D:\...
-# 仅当要固定到某盘时才在 config 里写绝对路径，例如：
-#   storagePath: 'D:/DSH/notes.txt'
+# 测 UI 请用 cordis.patch.yml + plugin add，见 docs/02-ui-plugin-practice.md
 
 - insert:
-    - id: notes
+    - id: ui-demo
       name: './src/index.ts'
       config: {}

@@ -1,16 +1,31 @@
 /**
- * 方案 A Phase 2 — JSON 笔记存储（由你实现）。
+ * Client 学习用 — Host 半（最小）。
  *
- * 规格：docs/02-plan-a-notes.md
- * 联调：docs/03-dev-workflow.md
- * 对照：archive/notes-phase1/（Phase 1 已封存，只读）
+ * 仅提供 Volatile Config，供浏览器半配置卡读写。
+ * 规格：docs/02-client-learning.md
  */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/cordis-plugin-loader'
+import Schema from '@deepseek-ai/schemastery'
 
-export const name = 'notes'
-export const inject = ['tools']
+export interface Config {
+  panelTitle: Volatile<string>
+  showHelperBanner: Volatile<boolean>
+}
 
-export function apply(ctx: Context): void {
-  // TODO Phase 2：notes-store.ts + note_add / note_list（JSON）
-  void ctx
+export const Config = Schema.object({
+  panelTitle: Schema.string().default('我的面板').volatile(),
+  showHelperBanner: Schema.boolean().default(true).volatile(),
+})
+
+/** patch 行 id；Client 槽位键 dsh-plugin#ui-demo */
+export const name = 'ui-demo'
+
+export function apply(ctx: Context, config: Config): void {
+  ctx.on('loader/volatile-update', () => {
+    console.log(
+      `[ui-demo] config: panelTitle=${config.panelTitle.get()} `
+      + `showHelperBanner=${config.showHelperBanner.get()}`,
+    )
+  })
 }

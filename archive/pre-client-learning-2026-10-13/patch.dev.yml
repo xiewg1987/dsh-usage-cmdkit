@@ -1,0 +1,10 @@
+# Host 源码联调（不加载 client — 看不到 Plugins 配置卡）：
+#   cd D:\ScriptProject\deepseek-harness
+#   pnpm dsh web --patch ../dsh-plugin/patch.dev.yml
+#
+# 测 UI 请用 cordis.patch.yml + plugin add，见 docs/02-ui-plugin-practice.md
+
+- insert:
+    - id: ui-demo
+      name: './src/index.ts'
+      config: {}

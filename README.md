@@ -1,45 +1,29 @@
 # dsh-plugin
 
-独立 DeepSeek Harness 插件仓库。当前练习：**方案 A Phase 2 — JSON 笔记存储**（自行实现）。
+DeepSeek Harness 插件仓库 — **当前：从零学习 Client 半（React 配置卡）**。
 
-## 先读文档
+## 开始
 
-| 文档 | 说明 |
-|------|------|
-| [docs/README.md](./docs/README.md) | 文档索引 |
-| [docs/02-plan-a-notes.md](./docs/02-plan-a-notes.md) | **Phase 2 规格（从这里开干）** |
-| [docs/03-dev-workflow.md](./docs/03-dev-workflow.md) | 怎么启动、怎么验收 |
-| [docs/01-overview.md](./docs/01-overview.md) | Host / Web 边界 |
+1. 读 [docs/02-client-learning.md](./docs/02-client-learning.md)  
+2. 在 **`src/client/`** 写 React（目录里仅有 README 占位）  
+3. Host 已在 **`src/index.ts`**（最小 Config，勿写 UI）
 
-## 仓库布局
+## 布局
 
 ```
-docs/                      说明与规格（权威）
-src/index.ts               Phase 2 空壳（你来填 notes-store + 工具）
-patch.dev.yml              --patch 联调
-cordis.patch.yml           plugin add / profile
-archive/greet-lab/         封存：greet 实验
-archive/notes-phase1/      封存：Phase 1 txt 笔记（完整代码+文档）
+src/index.ts           Host（Config only）
+src/client/            你来写 React
+lib/client.js          pnpm run build:client 生成
+archive/greet-lab/     完整 Host+Client 对照
+archive/notes-phase1/
+archive/pre-client-learning-2026-10-13/   本次清空前快照
 ```
 
-## 快速联调
+## 联调 UI
 
 ```powershell
-cd D:\ScriptProject\dsh-plugin
-pnpm install
-pnpm run typecheck
-
-cd D:\ScriptProject\deepseek-harness
-pnpm dsh web --patch ../dsh-plugin/patch.dev.yml
+pnpm dsh plugin --profile web add D:/ScriptProject/dsh-plugin
+pnpm dsh web
 ```
 
-## 封存说明
-
-- greet：`archive/greet-lab/` → [docs/04-reference-archived-greet.md](./docs/04-reference-archived-greet.md)
-- Phase 1 笔记：`archive/notes-phase1/` → [docs/05-reference-archived-notes-phase1.md](./docs/05-reference-archived-notes-phase1.md)
-
-不要在 `archive/` 里继续当现网开发。
-
-## Git
-
-在本目录提交；不要提交到 `deepseek-harness`。`data/` 若存放笔记，建议忽略内容（见 `.gitignore`）。
+`--patch` 仅 Host，**看不到** Configure 卡片。

@@ -2,10 +2,10 @@
 
 | 文档 | 内容 |
 |------|------|
-| [01-overview.md](./01-overview.md) | 仓库角色、Host / Web、和 DSH 的边界 |
-| [02-plan-a-notes.md](./02-plan-a-notes.md) | **方案 A Phase 2：JSON 存储（当前练习）** |
-| [03-dev-workflow.md](./03-dev-workflow.md) | 联调、启动、验收、常见坑 |
-| [04-reference-archived-greet.md](./04-reference-archived-greet.md) | 已封存的 greet 实验 |
-| [05-reference-archived-notes-phase1.md](./05-reference-archived-notes-phase1.md) | 已封存的 Phase 1 txt 笔记 |
+| [02-client-learning.md](./02-client-learning.md) | **当前：Client 半学习路线（从这里开始）** |
+| [01-overview.md](./01-overview.md) | Host / Client 边界 |
+| [03-dev-workflow.md](./03-dev-workflow.md) | 联调命令 |
+| [04-reference-archived-greet.md](./04-reference-archived-greet.md) | greet 完整样本 |
+| [05-reference-archived-notes-phase1.md](./05-reference-archived-notes-phase1.md) | 笔记 Phase 1 |
 
-从 [02-plan-a-notes.md](./02-plan-a-notes.md) 开始写 Phase 2 代码。
+历史 UI/笔记文档快照：`../archive/pre-client-learning-2026-10-13/docs/`。
