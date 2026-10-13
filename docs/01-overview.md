@@ -23,6 +23,7 @@
 
 ## 当前阶段
 
-- 练手 **greet** 已封存：`archive/greet-lab/`
-- 实战目标：**方案 A — 本地短笔记**（见 `02-plan-a-notes.md`）
+- **greet** 已封存：`archive/greet-lab/`
+- **方案 A Phase 1**（txt 笔记）已封存：`archive/notes-phase1/`
+- **当前练习：方案 A Phase 2** — JSON 存储（见 `02-plan-a-notes.md`）
 - 代码由你实现；AI 按你的提问辅助，默认不替你写完整业务除非你明确要求

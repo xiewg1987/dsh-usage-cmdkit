@@ -1,123 +1,62 @@
-# 方案 A：本地短笔记（实战规格）
+# 方案 A Phase 2：JSON 笔记存储（当前练习）
 
-目标：让模型通过工具 **写入 / 列出** 短文本备忘，数据落在本机文件里。你自己实现 Host；配置卡片为可选加分项。
+Phase 1（txt + 工作区路径 + Config）已封存：`archive/notes-phase1/`。  
+你在 **仓库根 `src/`** 从这里继续实现；对照归档代码与文档，不要改 `archive/` 里的实现。
 
-## 1. 产品行为
+## 1. 目标
 
-用户可以说：
+- 仍用 `note_add` / `note_list`（工具名可不变）
+- 存储改为 **单文件 JSON**（见 §3），含 `id`、`text`、`createdAt`
+- **路径规则**与 Phase 1 一致：默认当前会话 **工作区 cwd** 下的文件（Config `storagePath` 默认如 `notes.json`）
+- 复用 Phase 1 的 Config 语义：`defaultLimit`、`maxNotes`（拒绝写入或丢最旧——在文档里写清你选的策略）
 
-- 「帮我记一下：明天下午三点开会」→ 调用 `note_add`
-- 「看看我记了哪些笔记」→ 调用 `note_list`
+## 2. 建议步骤
 
-模型看到的工具结果应是清晰文本或简单结构化说明（`type: 'text'` 即可；协议里没有 `html` 块）。
+1. 新建 `src/notes-store.ts`：读/写 JSON、追加一条、列出最近 N 条、条数统计  
+2. `src/index.ts`：注册工具，调用 store；`pre-execute` 空文本 deny（可从 Phase 1 复制思路）  
+3. `note_list` 返回：**文件路径 + 共 M 条 + 显示最近 N 条 + 编号列表**（减少模型乱调 `read`）  
+4. `note_add` 成功返回可带 **当前总条数**
 
-## 2. 建议的工具
-
-### `note_add`
-
-
-| 项   | 建议                                              |
-| --- | ----------------------------------------------- |
-| 参数  | `text: string`（必填）                              |
-| 行为  | 追加一条笔记（含时间戳）到存储文件                               |
-| 返回  | 成功提示 + 当前条数，或新条目摘要                              |
-| 失败  | 空字符串 → 在 `pre-execute` deny，或 `execute` 里抛成工具错误 |
-
-
-
-
-### `note_list`
-
-
-| 项   | 建议                          |
-| --- | --------------------------- |
-| 参数  | `limit?: number`（可选，默认如 10） |
-| 行为  | 读取存储，返回最近 N 条               |
-| 返回  | 编号列表文本；无数据时明确说「暂无笔记」        |
-
-
-可选第三工具（加分）：`note_clear`（清空，建议 Config 开关或二次确认策略）。
-
-## 3. Config（建议 Volatile）
-
-```ts
-// 规格示意——请你自己在 src 里落地
-interface Config {
-  /** 笔记文件绝对路径或相对插件数据目录的路径 */
-  storagePath: Volatile<string>
-  /** note_list 默认条数上限 */
-  defaultLimit: Volatile<number>
-  /** 允许存储的最大条数；超出时丢弃最旧或拒绝写入（二选一，文档化） */
-  maxNotes: Volatile<number>
-}
-```
-
-- 字段务必 `.volatile()`，否则以后做 Plugins 卡片时没有 `form`。
-- 热更新：需要时监听 `loader/volatile-update`（`import type {} from '@deepseek-ai/cordis-plugin-loader'`）。
-
-
-
-## 4. 存储格式（建议）
-
-单文件 JSON，例如：
+## 3. 存储格式
 
 ```json
 {
   "version": 1,
   "notes": [
-    { "id": "…", "text": "明天下午三点开会", "createdAt": "2026-10-12T08:00:00.000Z" }
+    { "id": "uuid-or-nano", "text": "明天下午三点开会", "createdAt": "2026-10-13T03:00:00.000Z" }
   ]
 }
 ```
 
-- 路径默认放在用户可写位置（例如插件目录下 `data/notes.json`，或 Config 指定）。
-- 读写注意：并发简单场景可串行；先实现正确再谈锁。
+- 文件不存在 → 视为 `{ "version": 1, "notes": [] }` 再写入  
+- `maxNotes` 超出：拒绝新条 **或** 删除最旧条目（二选一，写在代码注释或本文档）
 
-
-
-## 5. 安全与门禁
-
-- `note_add`：`text` 空白 → deny。
-- `storagePath`：避免写到任意系统目录；入门可限制在仓库 `data/` 下。
-- 不要在工具结果里打印整盘路径以外的密钥。
-
-
-
-## 6. 建议文件布局（你来创建）
+## 4. 建议布局
 
 ```
 src/
-  index.ts          # 或 notes-plugin.ts：name / inject / Config / apply
-  notes-store.ts    # 读写 JSON 的纯函数（可选拆分）
-data/               # 默认笔记文件（可 gitignore 内容）
-cordis.patch.yml    # id: notes，name: dsh-plugin
-patch.dev.yml       # name: './src/….ts'，仅 Host 联调
+  index.ts          # apply、工具注册、pre-execute
+  notes-store.ts    # 纯函数：路径解析可仍放 index 或单独 util
+patch.dev.yml       # --patch 联调
+cordis.patch.yml    # plugin add
 ```
 
-当前仓库已留空壳 `src/index.ts`，把逻辑写进去或改名并改 `package.json` / patch 的入口。
+## 5. 验收清单（Phase 2，自己打勾）
 
-## 7. 验收清单（自己打勾）
+- [ ] `pnpm run typecheck` 通过  
+- [ ] JSON 落在工作区下 Config 指定路径（默认 `notes.json`）  
+- [ ] `note_add` 写入后文件为合法 JSON，含时间戳  
+- [ ] `note_list` 与 add 数据一致；默认 `defaultLimit` 生效  
+- [ ] 空文本 deny；`maxNotes` 行为与文档一致  
+- [ ] （可选）从 Phase 1 的 `notes.txt` 手动迁移一条做肉眼对照  
 
-- [x] `pnpm run typecheck` 通过  
-- [x] `--patch` 启动后，模型能 `note_add` 成功  
-- [ ] `note_list` 能看到刚才那条  
-- [ ] 空文本被拒绝  
-- [ ] 改 Config 的 `defaultLimit` / `maxNotes` 行为符合文档（可用 patch 里的 `config:`）  
-- [ ] （可选）Plugins 配置卡改 `storagePath`  
+## 6. 明确本阶段不做
 
+- Plugins 配置卡（可 Phase 3；对照 `archive/greet-lab`）  
+- `note_clear`（加分项，做完上面再做）
 
+## 7. 参考
 
-## 8. 明确不做（本阶段）
-
-- 对话整页换肤、语音桌宠  
-- 工具结果 HTML / 彩色气泡（无 `type: 'html'`；颜色需 toolview）  
-- 完整复刻 harness 的 `clientBundle` 流水线（配置卡可后做；可先对照 `archive/greet-lab`）
-
-
-
-## 9. 参考
-
-- harness：`packages/core/tools` README（`defineTool`、流水线）  
-- harness：`docs/cookbook/adding-a-settings-card.zh.md`（Volatile）  
-- 本仓库：`archive/greet-lab`（仅对照，勿继续堆功能）
-
+- Phase 1 归档：`archive/notes-phase1/`、`docs/05-reference-archived-notes-phase1.md`  
+- 联调：`docs/03-dev-workflow.md`  
+- harness：`packages/core/tools` README（`defineTool`）
