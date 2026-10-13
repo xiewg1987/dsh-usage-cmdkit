@@ -1,54 +1,41 @@
 # dsh-plugin
 
-独立 DeepSeek Harness 插件仓库（可长期开发与提交）。从 `deepseek-harness/scratch-plugin` 迁出。
+独立 DeepSeek Harness 插件仓库。当前实战：**方案 A — 本地短笔记**（自行实现）。
 
-## 布局
+## 先读文档
 
-| 文件 | 用途 |
+| 文档 | 说明 |
 |------|------|
-| `src/hello-plugin.ts` | Host 半：`greet` 工具 + Volatile Config 门禁 + post/result 钩子 |
-| `src/client/` | 浏览器半源码草图（注释与类型；`plugins.row.config` 卡片） |
-| `lib/client.js` | Web 实际加载的 lazy-CJS factory（`exports["./client"]`） |
-| `patch.dev.yml` | 源码联调 Host：`pnpm dsh web --patch`（**不**挂 client） |
-| `cordis.patch.yml` | 组合包层：`dsh plugin add` / profile（裸包名，**会**挂 client） |
-| `package.json` | `dsh.bundle` + `dsh.client.platform: "web"` |
+| [docs/README.md](./docs/README.md) | 文档索引 |
+| [docs/02-plan-a-notes.md](./docs/02-plan-a-notes.md) | **A 的完整规格（从这里开干）** |
+| [docs/03-dev-workflow.md](./docs/03-dev-workflow.md) | 怎么启动、怎么验收 |
+| [docs/01-overview.md](./docs/01-overview.md) | Host / Web 边界 |
 
-## 源码联调 Host（旁路 harness）
+## 仓库布局
 
-```sh
+```
+docs/                 说明与规格（权威）
+src/index.ts          Host 空壳（你来填）
+patch.dev.yml         --patch 联调
+cordis.patch.yml      plugin add / profile
+archive/greet-lab/    已封存的 greet 实验（只读对照）
+```
+
+## 快速联调
+
+```powershell
 cd D:\ScriptProject\dsh-plugin
 pnpm install
+pnpm run typecheck
 
 cd D:\ScriptProject\deepseek-harness
 pnpm dsh web --patch ../dsh-plugin/patch.dev.yml
 ```
 
-改 Host `src/` 或 `patch.dev.yml` 一般会 HMR。这条路径**不会**加载 Web 配置卡片。
+## 封存说明
 
-## Web 配置卡片（浏览器半）
-
-第三方行配置注册在 `plugins.row.config`，键为 `dsh-plugin#greet`。
-
-1. Host Config 字段必须 `.volatile()`，否则 Plugins 页没有 `form`。
-2. `package.json` 声明 `exports["./client"]` 与 `dsh.client.platform: "web"`。
-3. Loader 行说明符必须是裸包名 `dsh-plugin`（见 `cordis.patch.yml`），子路径/源码路径不挂 client。
-
-```sh
-dsh plugin --profile mydemo add D:/ScriptProject/dsh-plugin
-# 用带 Web 的 profile 启动后：
-# Plugins → dsh-plugin → greet 行 → Configure
-```
-
-改卡片 UI：编辑 `src/client/`（说明）并同步 `lib/client.js`，然后 `pnpm run build:client`。装进 profile 后若 client 已缓存，重启 Web 或 bump 包版本。
-
-## 门禁配置
-
-编辑 patch 的 `config`，或在 Web 卡片里保存：
-
-- `preDenyNames`：执行前 deny（不跑 `execute`）
-- `postBlockNames`：执行后 block（先跑成功再改成错误）；勿与 `preDenyNames` 重叠
-- `greeting`：问候前缀
+旧的 greet 工具 / 配置卡 / 手写 `lib/client.js` 已移到 `archive/greet-lab/`，**不要**再当作现网入口。对照见 [docs/04-reference-archived-greet.md](./docs/04-reference-archived-greet.md)。
 
 ## Git
 
-在本目录初始化并提交即可，不要提交到 `deepseek-harness`。
+在本目录提交；不要提交到 `deepseek-harness`。`data/` 若存放笔记，建议忽略内容（见 `.gitignore`）。

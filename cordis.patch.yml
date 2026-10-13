@@ -1,15 +1,7 @@
-# Bundle patch for `dsh plugin add` / profile bundles.
-# Plugin row uses the bare package name so:
-#   - Node resolves the installed/linked package (Host half)
-#   - client module system attaches ./client (Web 配置卡片 → plugins.row.config 键 dsh-plugin#greet)
+# dsh plugin add / profile：裸包名，便于以后挂 ./client
+#   pnpm dsh plugin --profile web add D:/ScriptProject/dsh-plugin
 
 - insert:
-    - id: greet
+    - id: notes
       name: dsh-plugin
-      config:
-        greeting: 'Hey'
-        preDenyNames:
-          - forbidden
-        postBlockNames:
-          - Ada5
-          - Ada6
+      config: {}
