@@ -15,5 +15,7 @@
 
 ## 验收
 
+- 联调后查看 **`$DSH_PROFILE_DIR/usage-stats.json`**（未设置时用 `$DSH_HOME/profiles/web/usage-stats.json`）。  
+- 每完成一轮有模型的 turn，对应 **dayKey** 下 `total` 四桶递增；终端会打 `[usage-dashboard] 已写入`。  
 - 连续聊两天（或改系统日测试）：文件里有两个日键，旧日会被 prune。  
 - 清空 = 删除文件或重置 `days: {}`（步骤 3 再暴露 `clearUsage` remote）。

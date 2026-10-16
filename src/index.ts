@@ -1,39 +1,20 @@
 /**
- * Usage Dashboard — Host 半（步骤 1：采集 turn 用量）。
- * 在 turn 结束时从会话持久日志截取事件，与 Web「本轮用量」同源 fold。
+ * Usage Dashboard — Host 半。
+ * 步骤 1：turn/end + deriveTurnTokenUsage；步骤 2：merge 写入 usage-stats.json。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { deriveTurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
+import { eventsForTurn } from './turn-events.js'
+import { persistTurnUsage } from './usage-store.js'
 
 /** 与 cordis.patch.yml 行 id 一致 */
 export const name = 'usage-dashboard'
 
-/**
- * 从会话快照中取出某一 turn 的 durable 事件段：`turn/start` … `turn/end`（含首尾）。
- * 用快照而不是手写缓冲，避免插件晚挂载漏掉 turn/start、或漏收中间事件。
- */
-function eventsForTurn(session: Session, turn: number): SessionEvent[] {
-  const all = session.snapshotEvents()
-  let start = -1
-  let end = -1
-  for (let i = 0; i < all.length; i++) {
-    const event = all[i]!
-    if (event.type === 'turn/start' && event.data.turn === turn) start = i
-    if (event.type === 'turn/end' && event.data.turn === turn) {
-      end = i
-      break
-    }
-  }
-  if (start < 0 || end < 0 || end < start) return []
-  return all.slice(start, end + 1)
-}
-
 export function apply(ctx: Context): void {
   ctx.on('session/event', (session: Session, event: SessionEvent) => {
-    // 只在 turn 结算点处理；中间 step 的 usage 由 fold 在整段事件里合并
     if (event.type !== 'turn/end') return
 
     const turn = event.data.turn
@@ -63,6 +44,17 @@ export function apply(ctx: Context): void {
       sessionId: id,
       turn,
       ...usage,
+    })
+
+    // 步骤 2：按 turn 结束时刻的本地日写入 profile 下 JSON
+    void persistTurnUsage(usage, event.time).then(({ path, dayKey, file }) => {
+      const day = file.days[dayKey]?.total
+      console.log('[usage-dashboard] 已写入', path, {
+        dayKey,
+        dayTotal: day,
+      })
+    }).catch((error: unknown) => {
+      console.error('[usage-dashboard] 写入 usage-stats.json 失败', error)
     })
   })
 }
