@@ -44,6 +44,8 @@
     "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../deepseek-harness/packages/client/ui-plugin-manager",
     "@deepseek-ai/dsh-client-ui-renderer": "link:../deepseek-harness/packages/client/ui-renderer",
     "@deepseek-ai/dsh-client-ui-slots": "link:../deepseek-harness/packages/client/ui-slots",
+    "@deepseek-ai/dsh-session": "link:../deepseek-harness/packages/core/session",
+    "@deepseek-ai/dsh-token-meter": "link:../deepseek-harness/packages/llm/token-meter",
     "@deepseek-ai/schemastery": "link:../deepseek-harness/vendor/schemastery",
     "@types/node": "^26.6.5",
     "@types/react": "~18.3.1",
