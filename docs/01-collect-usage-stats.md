@@ -1,167 +1,250 @@
-# 步骤 1：获取统计数据
+# dsh-usage-dashboard 学习文档
 
-目标：**在 Host 里拿到每次对话 turn 结束时的 token 用量**，字段与 DSH Web **「本轮用量」** 一致。  
-本步 **不写文件、不做 Dashboard、不注册 Tool**，也 **不** 为统计多调一次模型。
+> **注意：本文档是给新手学习用的，会详细解释每个概念、代码逻辑和实现路径。建议您在阅读时打开对应的代码文件进行对照。**
 
-## 1.1 数据从哪来
+## 目录
 
-用量不是去查开放平台 API，而是 harness 在模型响应里已经解析好的 **`TokenUsage`**，并写进持久会话日志。插件只 **订阅** 这些事实：
+1. [项目概述](#1-项目概述)
+2. [核心概念](#2-核心概念)
+3. [数据流与步骤 1 实现详解](#3-数据流与步骤-1-实现详解)
+4. [关键代码逐行解释](#4-关键代码逐行解释)
+5. [依赖与链接机制](#5-依赖与链接机制)
+6. [联调与验证方法](#6-联调与验证方法)
+7. [常见问题与注意事项](#7-常见问题与注意事项)
+8. [文档如何使用](#8-文档如何使用)
 
-| 通道 | 用途 |
-|------|------|
-| **`ctx.on('session/event', (session, event) => …)`** | 持久事件：turn/step 边界、`assistant/message`、`assistant/attempt`、工具活动等 |
-| `agent/assistant-stream` | 实时流帧；**统计 turn 总量时不必先接这条**（ settlement 已在 `session/event`） |
+## 1. 项目概述
 
-与内置 Chat 对齐的做法：在 **`turn/end`** 时，对该 turn 从 **`turn/start` 到 `turn/end`** 的 durable 事件做一次 fold，调用 harness 提供的：
+`dsh-usage-dashboard` 是 DeepSeek Harness（DSH）的一个第三方插件，用于在 DSH Web 侧边栏展示本地 Token 用量 Dashboard。
+
+### 核心目标
+- 在 turn 结束后，准确统计每次对话的 token 用量
+- 与 DSH Web「本轮用量」完全一致（四桶：`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`）
+- **不**额外调用模型 API、**不**注册 LLM Tool、**不**做 Dashboard 或 UI
+
+### 实施顺序
+根据文档，当前只做 **步骤 1**：获取统计数据（`session/event` → `deriveTurnTokenUsage` → log）
+
+## 2. 核心概念
+
+### 2.1 关键对象
+
+| 名称 | 类型 | 说明 |
+|------|------|------|
+| `TurnTokenUsage` | 接口 | 精确的 token 统计，包含四桶数据和可选的 provider 信息 |
+| `SessionEvent` | 接口 | DSH 会话的事件流，包含 turn/start、turn/end、assistant/attempt 等 |
+| `deriveTurnTokenUsage` | 函数 | 核心函数，将 turn 的事件流折叠成精确的 token 统计 |
+
+### 2.2 四桶 token 统计
+
+| 桶名称 | 含义 | 对应 UI 显示 |
+|--------|------|-------------|
+| `uncachedInputTokens` | 未缓存输入（对应 UI「未缓存输入」） | 该 turn 所有输入的总 token 数 |
+| `outputTokens` | 输出 | 该 turn 所有输出的 token 数 |
+| `cacheReadTokens` | 缓存读 | 该 turn 从缓存中读取的 token 数 |
+| `cacheWriteTokens` | 缓存写 | 该 turn 写入缓存的 token 数 |
+
+> **注意**：缺项按 0 处理，但必须保持四桶对齐。
+
+### 2.3 turn 事件流
+
+turn 的完整生命周期事件：
+- `turn/start`：开始一个新 turn
+- `step/start`：开始一个子步骤
+- `assistant/attempt`：assistant 发起一次调用（可能包含 streaming）
+- `assistant/message`：assistant 返回结果（可能包含 usage）
+- `llm/retry`：模型重试
+- `turn/end`：turn 结束
+
+### 2.4 `deriveTurnTokenUsage` 的工作原理
+
+这是核心函数，它：
+1. 维护每个 turn 的状态（`open`, `finishClosed`, `settled` 等）
+2. 处理每个事件，确保只统计一个完整 turn
+3. 通过 `normalizeUsage` 将原始 usage 映射为精确的 token 统计
+4. 通过 `aggregateAttempts` 合并多个 attempt 的数据
+5. 严格检查所有数据的合法性（安全整数、逻辑一致性等）
+
+## 3. 数据流与步骤 1 实现详解
+
+### 3.1 步骤 1 的目标
+
+在 `session/event` 监听中：
+- 监听 `turn/start` 到 `turn/end` 的完整生命周期
+- 使用 `deriveTurnTokenUsage` 函数将事件流折叠成 token 统计
+- 打印日志，但**不写文件、不做 Dashboard**
+
+### 3.2 关键逻辑
 
 ```ts
-import { deriveTurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
-import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
+function apply(_ctx: Context): void {
+  // TODO: 步骤 1: session/event → deriveTurnTokenUsage → log
+}
 ```
 
-Web Client 的「本轮用量」同样走这条路径（`ui-chat` 在 turn 尾部对 `context.matches` 调 `deriveTurnTokenUsage`）。**插件 Host 应复用同一函数**，避免自己按 step 相加导致重试/重复计数。
+#### 3.2.1 事件监听流程
 
-`deriveTurnTokenUsage` 成功时返回 **`TurnTokenUsage`**（与 UI 展示同族）：
+1. **`session/event` 监听**：当 DSH 会话触发事件时，进入此回调
+2. **`turn/start` 处理**：初始化当前 turn 的缓冲，记录 turn 编号
+3. **事件聚合**：在 `turn/end` 时，将所有相关事件传递给 `deriveTurnTokenUsage`
+4. **统计结果**：如果函数返回有效值，打印日志；否则记录 warning
 
-| 字段 | 含义 |
-|------|------|
-| `uncachedInputTokens` | 未缓存输入（对应 UI「未缓存输入」） |
-| `outputTokens` | 输出 |
-| `cacheReadTokens` / `cacheWriteTokens` | 缓存读/写（部分 provider 无则整轮可能无该字段） |
-| `totalTokens` | 该 turn 各 attempt 合计 |
-| `routes` | 可选：本 turn 计费用的 `{ provider, model }[]` |
+### 3.3 为什么需要 turn 边界
 
-若生命周期不完整、计数不安全或总量矛盾，函数返回 **`undefined`** — 本步应 **打 log 并跳过**，不要硬写 0 冒充成功。
+因为一个 turn 可能包含多个 attempt（retry、streaming），如果不以 turn 边界为单位统计，会导致：
+- 重复计数（多次统计同一输入）
+- 漏计数（缺少 turn/end 事件）
+- 逻辑错误（状态不一致）
 
-### 底层 `TokenUsage`（单 attempt）
+### 3.4 步骤 1 的验收标准
 
-适配器在 `assistant/message` 的 `data.usage`，或 stream 里 `type: 'usage'` chunk 上携带的原始结构（见 `@deepseek-ai/dsh-llm`）：
+- [ ] `session/event` 监听在 patch 联调下随聊天触发
+- [ ] 每个完成的 turn 至多一条有效统计（无 step 级重复累加）
+- [ ] log 与 Web「本轮用量」四桶一致（或明确记录 `undefined` 的 turn）
+- [ ] 多轮对话：turn 1、turn 2 各打一条，互不覆盖
 
-- `inputTokens` → 投影为 **`uncachedInputTokens`**
-- `outputTokens`、`cacheReadTokens`、`cacheWriteTokens` 等同名映射
+## 4. 关键代码逐行解释
 
-## 1.2 推荐算法（按 turn 缓冲）
+### 4.1 `src/index.ts` 的骨架
 
-在 `apply(ctx)` 里维护 **每个 session** 的当前 turn 缓冲（Map：`sessionId → { turn, events[] }`）：
+```ts
+export const name = 'usage-dashboard'
 
-1. **`turn/start`**：新开缓冲，`turn = event.data.turn`，`events = [event]`。
-2. **turn 内任意 durable 事件**（含 `step/*`、`assistant/*`、`llm/retry*`、`tool/*` 等）：若 `event.data.turn === 当前 turn`（或有 turn 坐标的事件），**append** 到缓冲。  
-   - 不要监听 live-only 类型；Host 侧只有 `session/event`。
-3. **`turn/end`** 且 `event.data.turn === 当前 turn`：  
-   - append `turn/end`  
-   - `const usage = deriveTurnTokenUsage(events)`  
-   - 若 `usage` 有值：这是 **本步唯一要消费的统计结果**（log / 暂存内存）  
-   - 清空该 session 缓冲  
+export function apply(_ctx: Context): void {
+  // TODO 步骤 1: session/event → deriveTurnTokenUsage → log（见 docs/01-collect-usage-stats.md）
+}
+```
 
-**不要**在每条 `assistant/message` 上直接把 `usage` 加进「今日总量」—— 一个 turn 多 step、多 attempt、retry 时容易 **重复或漏计**。以 **turn 边界 + deriveTurnTokenUsage** 为准。
+**解释**：
+- `name`：插件名称，与 `cordis.patch.yml` 中的 `id` 一致
+- `apply`：插件的主入口函数，接收 DSH 的 Context
+- 当前仅为骨架，需要实现步骤 1 的逻辑
 
-可选：仅统计「用户主会话」时，在 handler 里过滤 session（例如只处理某 agent 的 `agent.session`）；MVP 可先 **所有 session 都打 log**，便于对照。
+### 4.2 `deriveTurnTokenUsage` 的核心流程
 
-## 1.3 依赖（dev）
+在 `turn-usage.ts` 中，`deriveTurnTokenUsage` 经历以下关键步骤：
 
-在 `package.json` 的 `devDependencies` 增加与 harness 的 link（路径随你本机仓库）：
+1. **初始化状态**：
+   ```ts
+   let state: AttemptState = { kind: 'idle' }
+   const attempts: NormalizedAttempt[] = []
+   let turn: number | undefined
+   let sawEnd = false
+   let invalid = false
+   ```
+
+2. **关键事件处理**：
+   - `turn/start`：设置 turn 编号，初始化状态
+   - `turn/end`：标记结束，检查是否有效
+   - `assistant/attempt`：处理 streaming 使用情况
+   - `assistant/message`：处理最终结果
+
+3. **数据折叠**：
+   - 使用 `normalizeUsage` 将原始 usage 转换为精确的 token 统计
+   - 通过 `aggregateAttempts` 合并多个 attempt 的数据
+
+4. **安全检查**：
+   - 所有数值必须是安全的整数
+   - 逻辑一致性（如 reasoningTokens ≤ outputTokens）
+   - 状态机确保只统计一个完整 turn
+
+### 4.3 关键函数解析
+
+#### `normalizeUsage` 函数
+将原始 usage 转换为精确的 token 统计，处理 cache 相关逻辑。
+
+#### `aggregateAttempts` 函数
+合并多个 attempt 的 token 统计，处理 cache 和 routes。
+
+#### `sameAttempt` 函数
+确保事件属于同一个 step，防止跨 step 统计错误。
+
+## 5. 依赖与链接机制
+
+### 5.1 `package.json` 依赖
 
 ```json
-"@deepseek-ai/dsh-token-meter": "link:../deepseek-harness/packages/llm/token-meter",
-"@deepseek-ai/dsh-session": "link:../deepseek-harness/packages/core/session"
-```
-
-类型：`SessionEvent` 来自 `@deepseek-ai/dsh-session/types`。  
-运行期 **不必** 把整个 `dsh-token-meter` 插件挂进 composition：`deriveTurnTokenUsage` 是纯函数；Web 运行时本身已加载 token-meter。
-
-## 1.4 参考实现骨架（仅步骤 1）
-
-放在 `src/index.ts`（或拆到 `src/usage/collect-turn-usage.ts`）。下述为说明用伪代码，提交前需按 TypeScript 严格类型补全：
-
-```ts
-import type { Context } from '@deepseek-ai/cordis'
-import type { Session } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import { deriveTurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
-
-interface TurnBuffer {
-  turn: number
-  events: SessionEvent[]
-}
-
-function turnOf(event: SessionEvent): number | undefined {
-  if (event.type === 'turn/start' || event.type === 'turn/end') return event.data.turn
-  if ('turn' in event.data && typeof event.data.turn === 'number') return event.data.turn
-  return undefined
-}
-
-export function apply(ctx: Context): void {
-  const buffers = new Map<string, TurnBuffer>()
-
-  ctx.on('session/event', (session: Session, event: SessionEvent) => {
-    const id = session.id
-
-    if (event.type === 'turn/start') {
-      buffers.set(id, { turn: event.data.turn, events: [event] })
-      return
-    }
-
-    const buf = buffers.get(id)
-    if (buf === undefined) return
-
-    const t = turnOf(event)
-    if (t !== undefined && t !== buf.turn) return
-
-    buf.events.push(event)
-
-    if (event.type !== 'turn/end') return
-
-    const usage = deriveTurnTokenUsage(buf.events)
-    buffers.delete(id)
-
-    if (usage === undefined) {
-      console.warn(`[usage-dashboard] turn ${event.data.turn} session ${id}: no usage`)
-      return
-    }
-
-    console.log('[usage-dashboard] turn usage', {
-      sessionId: id,
-      turn: event.data.turn,
-      ...usage,
-    })
-  })
+"devDependencies": {
+  "@deepseek-ai/dsh-token-meter": "link:../deepseek-harness/packages/llm/token-meter",
+  "@deepseek-ai/dsh-session": "link:../deepseek-harness/packages/core/session"
 }
 ```
 
-步骤 1 验收：**只要求 log 出现且与 UI「本轮用量」同一数量级/同一四桶**（有 cache 的模型要对齐 cache 行）。
+**解释**：
+- 这些是链接依赖，实际代码在 `deepseek-harness` 仓库中
+- 通过 `link:` 机制，本地开发时直接引用源代码，方便修改
 
-## 1.5 联调与对照
+### 5.2 `patch.dev.yml` 与 `cordis.patch.yml` 的区别
 
-**Host only（patch，适合本步）**
+- `patch.dev.yml`：用于 Host 端的联调，**不加载 client**，只加载 `./src/index.ts`
+- `cordis.patch.yml`：用于 `plugin add` 时，**裸包名** `dsh-usage-dashboard`，会加载 `./client`
+
+**重要提示**：
+> 同一次启动**不要**混用 `--patch` 与 `plugin add`，因为 patch 的 `name: './src/index.ts'` 不会挂 `./client`。
+
+## 6. 联调与验证方法
+
+### 6.1 Host only 联调（步骤 1）
 
 ```powershell
 cd D:\ScriptProject\deepseek-harness
 pnpm dsh web --patch ../dsh-usage-dashboard/patch.dev.yml
 ```
 
-在 Web 里发一条会触发模型回复的消息 → 等 turn 结束 → 看 **harness 终端** 是否打印 `[usage-dashboard] turn usage`。
+**验证方法**：
+1. 在 Web 里发一条会触发模型回复的消息
+2. 等 turn 结束（通常 1-3 秒）
+3. 查看 harness 终端是否打印 `[usage-dashboard] turn usage`
 
-对照方式：
+### 6.2 步骤 1 的验收标准
 
-1. 聊天里点该轮 **「本轮用量」** 弹层。  
-2. 比较 `uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens` 与 log。  
+- [ ] `session/event` 监听在 patch 联调下随聊天触发
+- [ ] 每个完成的 turn 至多一条有效统计（无 step 级重复累加）
+- [ ] log 与 Web「本轮用量」四桶一致（或明确记录 `undefined` 的 turn）
+- [ ] 多轮对话：turn 1、turn 2 各打一条，互不覆盖
 
-若 log 为 `no usage` 而 UI 有数：抓该 turn 的事件类型序列（是否缺 `turn/start`/`turn/end`、是否 subagent 会话），再查 harness `packages/llm/token-meter/tests/turn-usage.spec.ts` 里的边界用例。
+## 7. 常见问题与注意事项
 
-## 1.6 本步刻意不做
+### 7.1 常见问题
 
-| 不做 | 原因 |
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| `deriveTurnTokenUsage` 返回 `undefined` | 事件流不完整、状态不一致 | 检查是否有 `turn/start` 到 `turn/end` 的完整流 |
+| 日志不打印 | 事件监听未正确绑定 | 确认 `session/event` 监听在 `apply` 函数中 |
+| token 数据与 UI 不符 | 缓存计算问题 | 确保四桶数据完全一致，检查 cache 相关逻辑 |
+
+### 7.2 注意事项
+
+1. **不要在每条 `assistant/message` 上直接统计**：一个 turn 可能包含多个 attempt、retry，会导致重复或漏计
+2. **必须以 turn 边界为单位统计**：只有在 `turn/end` 时调用 `deriveTurnTokenUsage` 才能确保统计的准确性
+3. **不要硬写 0**：如果函数返回 `undefined`，应 log 警告并跳过，不要写 0
+4. **多轮对话要互不覆盖**：每个 turn 的统计应该独立，不能覆盖上一轮
+
+## 8. 文档如何使用
+
+### 8.1 学习路径建议
+
+1. **先读文档**：阅读 `docs/01-collect-usage-stats.md`，理解步骤 1 的目标和实现思路
+2. **查看参考实现**：在 `packages/llm/token-meter/src/turn-usage.ts` 中阅读 `deriveTurnTokenUsage` 函数
+3. **实现骨架**：在 `src/index.ts` 中填充 `apply` 函数的逻辑
+4. **联调验证**：使用 `pnpm dsh web --patch` 进行 Host only 联调
+5. **逐步扩展**：完成步骤 1 后，继续做步骤 2（持久化 JSON）
+
+### 8.2 文档位置
+
+- 本学习文档建议放在 `docs/01-learning-guide.md`（需要创建）
+- 也可以直接在 `docs/01-collect-usage-stats.md` 中添加学习说明
+
+## 附录：关键术语速查
+
+| 术语 | 含义 |
 |------|------|
-| 写 `usage-stats.json` | 属 [步骤 2](./02-persist-stats.md) |
-| remotes / Client | 属 [步骤 3](./03-remotes-and-client.md) |
-| 注册 LLM Tool | 会额外消耗 token，与产品目标冲突 |
-| 用 `ctx.tokenMeter.measure()` 代替 turn 结算 | 那是上下文 **压力估算**，不是「本轮 provider 账单式」用量；Dashboard 要与 **本轮用量** 一致 |
+| `session/event` | DSH 会话的事件流，包含 turn/start、turn/end 等 |
+| `deriveTurnTokenUsage` | 将 turn 事件流折叠成精确 token 统计的核心函数 |
+| `turn/end` | turn 结束的事件，统计必须在此时完成 |
+| `deriveTurnTokenUsage` 返回 `undefined` | 表示无法安全统计，应 log 警告并跳过 |
+| `link:` 依赖 | 本地开发时引用源代码，不发布到 npm |
 
-## 1.7 完成标准（Checklist）
+---
 
-- [ ] `session/event` 监听在 patch 联调下随聊天触发  
-- [ ] 每个完成的 turn 至多一条有效统计（无 step 级重复累加）  
-- [ ] log 与 Web「本轮用量」四桶一致（或明确记录 `undefined` 的 turn）  
-- [ ] 多轮对话：turn 1、turn 2 各打一条，互不覆盖  
-
-通过后进入 **[步骤 2：持久化](./02-persist-stats.md)**。
+> **提示**：建议您在实现过程中，先从 `deriveTurnTokenUsage` 函数开始阅读，理解其状态机和事件处理逻辑，再逐步在 `src/index.ts` 中实现。每完成一个小功能后，立即联调验证，确保数据流正确。
