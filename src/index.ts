@@ -1,6 +1,6 @@
 /**
  * Usage Dashboard — Host 半。
- * Phase A/B：session/event hook、usage-stats.json、remotes（见 README.md）。
+ * 实施顺序见 docs/README.md；当前步骤 1：docs/01-collect-usage-stats.md
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -9,5 +9,5 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 export const name = 'usage-dashboard'
 
 export function apply(_ctx: Context): void {
-  // TODO Phase A: ctx.on('session/event', …) → 累加并写 usage-stats.json
+  // TODO 步骤 1: session/event → deriveTurnTokenUsage → log（见 docs/01-collect-usage-stats.md）
 }

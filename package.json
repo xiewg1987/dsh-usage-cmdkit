@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "DSH plugin: local token usage dashboard (Host hook + Web Client). See README.md.",
+  "description": "DSH plugin: local token usage dashboard (Host hook + Web Client). See docs/README.md.",
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
@@ -13,6 +13,7 @@
     "src",
     "lib",
     "scripts",
+    "docs",
     "cordis.patch.yml",
     "patch.dev.yml",
     "README.md"

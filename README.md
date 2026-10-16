@@ -33,10 +33,12 @@ Client **不得** import Host 或直读磁盘。
 
 ## 实施顺序
 
-1. **Host hook** — `ctx.on('session/event', …)`，按 **turn** 边界累加，避免同 turn 多 step 重复计；对照 harness `token-meter` / cookbook 里 `session/event`。
-2. **remotes** — `getUsageSummary()` → `{ today, d7, d30, byProvider }`；`clearUsage()`。
-3. **Client** — `sidebarRightTabs` 整页 React + 图表；`plugin add` 加载 `./client`。
-4. **可选 Config** — `storagePath`、`retentionDays`（Volatile）。
+详见 **[docs/README.md](./docs/README.md)**。当前从 **步骤 1** 开始：
+
+1. **[获取统计数据](./docs/01-collect-usage-stats.md)** — `session/event` + `deriveTurnTokenUsage`，与 Web「本轮用量」对齐  
+2. [持久化 JSON](./docs/02-persist-stats.md)  
+3. [remotes + Client Dashboard](./docs/03-remotes-and-client.md)  
+4. 可选 Config — `storagePath`、`retentionDays`
 
 ## 联调
 
@@ -67,12 +69,13 @@ pnpm run typecheck
 ## 目录
 
 ```
+docs/             实施文档（从 01 获取统计开始）
 src/index.ts
 src/client/
 cordis.patch.yml
 patch.dev.yml
 scripts/build-client.mjs
-archive/          历史样本与旧 docs（只读对照）
+archive/          历史样本（只读对照）
 ```
 
 ## 外部参考
@@ -83,4 +86,4 @@ archive/          历史样本与旧 docs（只读对照）
 
 ## 状态
 
-`private: true` 实验仓库。Host / Client **尚未实现**；以本 README 与代码为准。
+`private: true` 实验仓库。Host / Client **尚未实现**；以 **docs/** 与代码为准。

@@ -2,7 +2,7 @@
 #   cd D:\ScriptProject\deepseek-harness
 #   pnpm dsh web --patch ../dsh-usage-dashboard/patch.dev.yml
 #
-# 测 Client：cordis.patch.yml + plugin add（见 README.md 联调）
+# 步骤 1 用本 patch 联调；Client 见 docs/03-remotes-and-client.md
 
 - insert:
     - id: usage-dashboard
