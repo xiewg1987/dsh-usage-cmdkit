@@ -1,31 +1,13 @@
 /**
- * Client 学习用 — Host 半（最小）。
- *
- * 仅提供 Volatile Config，供浏览器半配置卡读写。
- * 规格：docs/02-client-learning.md
+ * Usage Dashboard — Host 半。
+ * Phase A/B：session/event hook、usage-stats.json、remotes（见 README.md）。
  */
-import type { Context, Volatile } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import Schema from '@deepseek-ai/schemastery'
 
-export interface Config {
-  panelTitle: Volatile<string>
-  showHelperBanner: Volatile<boolean>
-}
+/** 与 cordis.patch.yml 行 id 一致；Client 槽位键为 `<包名>#usage-dashboard` */
+export const name = 'usage-dashboard'
 
-export const Config = Schema.object({
-  panelTitle: Schema.string().default('我的面板').volatile(),
-  showHelperBanner: Schema.boolean().default(true).volatile(),
-})
-
-/** patch 行 id；Client 槽位键 dsh-plugin#ui-demo */
-export const name = 'ui-demo'
-
-export function apply(ctx: Context, config: Config): void {
-  ctx.on('loader/volatile-update', () => {
-    console.log(
-      `[ui-demo] config: panelTitle=${config.panelTitle.get()} `
-      + `showHelperBanner=${config.showHelperBanner.get()}`,
-    )
-  })
+export function apply(_ctx: Context): void {
+  // TODO Phase A: ctx.on('session/event', …) → 累加并写 usage-stats.json
 }

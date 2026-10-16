@@ -1,5 +1,7 @@
 # 开发与联调
 
+用量 Dashboard 方案见 [06-usage-dashboard-plan.md](./06-usage-dashboard-plan.md)。Host hook 阶段可只用 **`--patch`**，不必 `plugin add`。
+
 ## 依赖
 
 ```powershell

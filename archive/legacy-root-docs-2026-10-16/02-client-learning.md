@@ -1,5 +1,8 @@
 # Client 半学习路线（从零）
 
+> **产品 UI 主目标**是右栏 **用量 Dashboard**（见 [06-usage-dashboard-plan.md](./06-usage-dashboard-plan.md)）。  
+> 下文 **Configure 配置卡** 仍是有效的 Client 入门路径（槽位、`plugin add`、build 流程）。
+
 Host 只保留 **最小 Config**（`src/index.ts`），**不写 React**。  
 所有界面在 **`src/client/`**（React TSX），产物 **`lib/client.js`**。
 

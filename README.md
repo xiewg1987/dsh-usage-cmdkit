@@ -1,29 +1,86 @@
-# dsh-plugin
+# dsh-usage-dashboard
 
-DeepSeek Harness 插件仓库 — **当前：从零学习 Client 半（React 配置卡）**。
+DSH 第三方插件：在 **DSH Web** 里展示 **本地 token 用量 Dashboard**（圆环、按来源/时间聚合）。  
+数据来自 harness 已有 **session / turn usage**；Host **写 profile 下 JSON**；Client 经 **remotes** 读聚合。**不**额外调模型、**不**依赖开放平台统计 API。
 
-## 开始
+旁路 harness：`D:\ScriptProject\deepseek-harness`（本仓库 `package.json` 里 `@deepseek-ai/*` 为 `link:`）。
 
-1. 读 [docs/02-client-learning.md](./docs/02-client-learning.md)  
-2. 在 **`src/client/`** 写 React（目录里仅有 README 占位）  
-3. Host 已在 **`src/index.ts`**（最小 Config，勿写 UI）
+## 目标
 
-## 布局
+| 做 | 不做 |
+|----|------|
+| turn 结束后累加与「本轮用量」同类的 token 桶 | VS Code 侧栏、开始页卡片、桌宠 |
+| 日 rollup JSON，默认保留约 **30 天** | 为统计注册 LLM Tool |
+| 右栏 Tab：今日 / 7 日 / 30 日 + 按 provider Tab | MiniMax TOKEN PLAN 条（可另做） |
+
+Token 字段对齐 harness `TokenUsageProjection` 四桶：`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`（缺项按 0）。
+
+## 架构
 
 ```
-src/index.ts           Host（Config only）
-src/client/            你来写 React
-lib/client.js          pnpm run build:client 生成
-archive/greet-lab/     完整 Host+Client 对照
-archive/notes-phase1/
-archive/pre-client-learning-2026-10-13/   本次清空前快照
+模型响应 → usage 已在 DSH 会话内
+  → Host：session/event（及必要时 stream usage）→ merge 进 usage-stats.json → prune 旧日
+  → remotes：getUsageSummary / clearUsage
+  → Client：Dashboard 拉 remotes，刷新 / 清空
 ```
 
-## 联调 UI
+| 半侧 | 目录 |
+|------|------|
+| Host | `src/index.ts` |
+| Client | `src/client/` → `lib/client.js` |
+
+Client **不得** import Host 或直读磁盘。
+
+## 实施顺序
+
+1. **Host hook** — `ctx.on('session/event', …)`，按 **turn** 边界累加，避免同 turn 多 step 重复计；对照 harness `token-meter` / cookbook 里 `session/event`。
+2. **remotes** — `getUsageSummary()` → `{ today, d7, d30, byProvider }`；`clearUsage()`。
+3. **Client** — `sidebarRightTabs` 整页 React + 图表；`plugin add` 加载 `./client`。
+4. **可选 Config** — `storagePath`、`retentionDays`（Volatile）。
+
+## 联调
+
+**仅 Host（patch，无 Client）**
 
 ```powershell
-pnpm dsh plugin --profile web add D:/ScriptProject/dsh-plugin
+cd D:\ScriptProject\deepseek-harness
+pnpm dsh web --patch ../dsh-usage-dashboard/patch.dev.yml
+```
+
+**Host + Client**
+
+```powershell
+pnpm dsh plugin --profile web add D:/ScriptProject/dsh-usage-dashboard
 pnpm dsh web
 ```
 
-`--patch` 仅 Host，**看不到** Configure 卡片。
+同一次启动 **不要** 混用 `--patch` 与 `plugin add`（patch 的 `name: './src/index.ts'` **不会**挂 `./client`）。
+
+```powershell
+cd D:\ScriptProject\dsh-usage-dashboard
+pnpm install
+pnpm run typecheck
+```
+
+插件 patch 行：`id: usage-dashboard`，包名 `dsh-usage-dashboard`。
+
+## 目录
+
+```
+src/index.ts
+src/client/
+cordis.patch.yml
+patch.dev.yml
+scripts/build-client.mjs
+archive/          历史样本与旧 docs（只读对照）
+```
+
+## 外部参考
+
+- [DSH 插件教程](https://dumplinghuman.github.io/dsh-plugin-tutorial/)（事件 / Cordis）
+- [extension-cookbook.zh.md](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/cookbook/extension-cookbook.zh.md)（`session/event`）
+- [Whale Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)（本地 JSON 思路，UI 不同）
+
+## 状态
+
+`private: true` 实验仓库。Host / Client **尚未实现**；以本 README 与代码为准。
