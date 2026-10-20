@@ -42,14 +42,23 @@ export interface UsageTelemetryProps {
   names: readonly TelemetryName[]
   /** 排版密度，默认侧栏的紧凑版。 */
   variant?: TelemetryVariant
+  /** 窗口矮时用更紧的排版（行距与字号一起收），好让一屏装得下。 */
+  dense?: boolean
   /** 入场节拍。 */
   timing: TelemetryTiming
 }
 
-/** 两种密度下的字号与间距。 */
+/**
+ * 两种密度下的字号与间距，外加「窗口很矮」时更紧的一档。
+ *
+ * 面板要一屏装下：窗口矮的时候，四行遥测是唯一还占着整块高度的东西，
+ * 行距与字号各收一点，四行就能省出二十多像素。
+ */
 const DENSITY = {
   compact: { font: 12, gap: 14, labelGap: 7 },
   hero: { font: 15, gap: 16, labelGap: 8 },
+  compactDense: { font: 11, gap: 10, labelGap: 5 },
+  heroDense: { font: 13, gap: 12, labelGap: 6 },
 } as const
 
 /**
@@ -58,9 +67,11 @@ const DENSITY = {
  * @returns 列表。
  */
 export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
-  const { buckets, names, variant = 'compact', timing } = props
+  const { buckets, names, variant = 'compact', dense = false, timing } = props
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
-  const d = DENSITY[variant]
+  const d = dense
+    ? (variant === 'hero' ? DENSITY.heroDense : DENSITY.compactDense)
+    : DENSITY[variant]
 
   const rowRefs = useRef<(HTMLLIElement | null)[]>([])
   const barRefs = useRef<(HTMLDivElement | null)[]>([])

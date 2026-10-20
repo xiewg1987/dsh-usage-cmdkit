@@ -25,9 +25,20 @@ import {
   rgba,
 } from './usage-theme.js'
 
-/** 一条极细的分隔线。 */
+/**
+ * 一条极细的分隔线。
+ *
+ * 上下各收 6px：它是独立的一行，两侧各让一个完整的间距（13px×2）太贵——
+ * 面板要「一屏装下」，八条分隔线光间距就吃掉一百多像素。
+ * 收到 7px 上下之后，节奏也贴近设计稿（那里分隔线上下也就 7–10px）。
+ */
 export function Divider(): ReactNode {
-  return <div style={{ height: 1, background: HAIR, flex: 'none' }} aria-hidden="true" />
+  return (
+    <div
+      style={{ height: 1, background: HAIR, flex: 'none', marginTop: -6, marginBottom: -6 }}
+      aria-hidden="true"
+    />
+  )
 }
 
 /**

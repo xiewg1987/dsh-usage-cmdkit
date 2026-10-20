@@ -138,10 +138,12 @@ export function UsageRing(props: UsageRingProps): ReactNode {
     return { key, index, value, share, from, to }
   })
 
-  const arc = (from: number, to: number, pathRadius: number): { length: number; offset: number } => ({
-    length: (to - from) * pathRadius,
-    offset: (from + Math.PI / 2) * pathRadius,
-  })
+  /**
+   * 弧段起点的周长偏移（px）。
+   *
+   * 画弧是从十二点方向顺时针铺开的，偏移量要跟着起点角度走。
+   */
+  const arcOffset = (from: number, pathRadius: number): number => (from + Math.PI / 2) * pathRadius
 
   // 环外标签先挑一遍：太小的不标，角距太近的只留占比大的那个。
   const visibleLabels = labels === undefined
@@ -192,7 +194,6 @@ export function UsageRing(props: UsageRingProps): ReactNode {
     })
 
     segments.forEach((segment, index) => {
-      const { length, offset } = arc(segment.from, segment.to, radius)
       const delay = timing.arc + index * timing.arcStep
       // 后面的弧越短：越晚起跑、越快收，四段合起来是一条连贯的环在画。
       const duration = Math.max(180, 360 - index * 40)
@@ -207,13 +208,12 @@ export function UsageRing(props: UsageRingProps): ReactNode {
         if (circle === null || circle === undefined) continue
         circle.animate(
           [
-            { strokeDasharray: `0 ${circumference}` },
-            { strokeDasharray: `${length} ${circumference}` },
+            { strokeDasharray: '0 1' },
+            { strokeDasharray: `${segment.share} 1` },
           ],
           options,
         )
       }
-      void offset
     })
 
     // 柔光呼吸：4s 一周期，亮度只在 ±5% 内动，且是唯一的常驻动画。
@@ -276,9 +276,11 @@ export function UsageRing(props: UsageRingProps): ReactNode {
         {/* 能量核：两层柔光球，不做实心球。 */}
         <circle ref={haloRef} cx={center} cy={center} r={outer} fill={`url(#${uid}-halo)`} />
         <circle cx={center} cy={center} r={size * 0.23} fill={`url(#${uid}-core)`} />
-        {/* 四段弧：玻璃渐变 + 外发光 bloom。 */}
+        {/* 四段弧：玻璃渐变 + 外发光 bloom。
+            pathLength 把周长归一成 1，弧长与偏移就与环径无关——
+            环径随一屏高度变小时，弧不会错位。 */}
         {segments.map((segment) => {
-          const { length, offset } = arc(segment.from, segment.to, radius)
+          const offset = arcOffset(segment.from, radius)
           return (
             <circle
               key={segment.key}
@@ -286,11 +288,12 @@ export function UsageRing(props: UsageRingProps): ReactNode {
               cx={center}
               cy={center}
               r={radius}
+              pathLength={1}
               fill="none"
               stroke={`url(#${uid}-g${segment.index})`}
               strokeWidth={stroke}
-              strokeDasharray={`${length} ${circumference}`}
-              strokeDashoffset={-offset}
+              strokeDasharray={`${segment.share} 1`}
+              strokeDashoffset={-(offset / circumference)}
               transform={`rotate(-90 ${center} ${center})`}
               style={{
                 filter: `drop-shadow(0 0 ${size * 0.022}px ${rgba(BUCKET_GLASS[segment.index].base, 0.42)})`,
@@ -302,7 +305,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
         {/* 镜面高光：贴着环带外缘，亮度只在上半圈。 */}
         {segments.map((segment) => {
           const specRadius = outer - size * 0.005
-          const { length, offset } = arc(segment.from, segment.to, specRadius)
+          const offset = arcOffset(segment.from, specRadius)
           return (
             <circle
               key={`spec-${segment.key}`}
@@ -310,11 +313,12 @@ export function UsageRing(props: UsageRingProps): ReactNode {
               cx={center}
               cy={center}
               r={specRadius}
+              pathLength={1}
               fill="none"
               stroke={`url(#${uid}-spec)`}
               strokeWidth={Math.max(2, size * 0.007)}
-              strokeDasharray={`${length} ${circumference}`}
-              strokeDashoffset={-offset}
+              strokeDasharray={`${segment.share} 1`}
+              strokeDashoffset={-(offset / circumference)}
               transform={`rotate(-90 ${center} ${center})`}
               style={{ transition: `stroke-dasharray 380ms ${EASE_OUT}` }}
             />
@@ -325,7 +329,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
           x={center}
           y={center + size * v.headlineGap}
           textAnchor="middle"
-          fontSize={size * v.headline}
+          fontSize={Math.max(15, size * v.headline)}
           fontWeight={700}
           fill={TEXT}
           letterSpacing={-size * 0.004}
@@ -337,7 +341,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
           x={center}
           y={center + size * v.lineGap}
           textAnchor="middle"
-          fontSize={size * v.caption}
+          fontSize={Math.max(8, size * v.caption)}
           fontWeight={500}
           fill={MUTED}
           letterSpacing={size * v.caption * 0.115}
@@ -355,7 +359,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
           x={center}
           y={center + size * (v.lineGap + v.subGap)}
           textAnchor="middle"
-          fontSize={size * v.sub}
+          fontSize={Math.max(8, size * v.sub)}
           fontWeight={400}
           fill={MUTED}
           letterSpacing={size * v.sub * 0.09}
