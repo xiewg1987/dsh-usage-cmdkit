@@ -1,8 +1,8 @@
 /**
- * 3D 用量环：等高线层环的 React 外壳。
+ * 3D 用量环：轨道矩阵的 React 外壳。
  *
  * 分工很明确——**图是 3D 的，文字是普通的**：
- * - 环本身画在 canvas 上（three.js），带倾斜、层叠与慢自转；
+ * - 环本身画在 canvas 上（three.js），带倾斜、鳍片环、数据轨与慢自转；
  * - 环心的总览数字、环外的百分比标签都是普通 DOM 文字，
  *   叠在 canvas 上面，不随透视变形：小字在倾斜下会发虚，数据面板不能这样。
  *
@@ -19,7 +19,7 @@ import { UsageRing, RING_VARIANT, type UsageRingProps } from './UsageRing.js'
 import { ACCENT, BUCKET_COLORS, FONT_SANS, MUTED, TEXT } from './usage-theme.js'
 import { useCountUp } from './usage-motion.js'
 import { placeRingLabels, ringSegments, type RingLabelPlacement, type RingSegment } from './usage-ring-geometry.js'
-import type { ContourRing } from './usage-3d.js'
+import type { OrbitMatrix } from './usage-3d.js'
 
 /**
  * 3D 分片的包内 id。
@@ -88,7 +88,7 @@ export function UsageRing3D(props: UsageRingProps): ReactNode {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
   /** 降级：拿不到 WebGL 或上下文丢了，就用 SVG 环。 */
   const [degraded, setDegraded] = useState(false)
-  const ringRef = useRef<ContourRing | null>(null)
+  const ringRef = useRef<OrbitMatrix | null>(null)
   const labelNodes = useRef<(HTMLSpanElement | null)[]>([])
   const placementsRef = useRef<RingLabelPlacement[]>([])
   const segmentsRef = useRef<RingSegment[]>([])
@@ -139,7 +139,7 @@ export function UsageRing3D(props: UsageRingProps): ReactNode {
     }
 
     let disposed = false
-    let handle: ContourRing | null = null
+    let handle: OrbitMatrix | null = null
 
     const onContextLost = (event: Event): void => {
       // preventDefault 让浏览器保留恢复的机会。
@@ -156,7 +156,7 @@ export function UsageRing3D(props: UsageRingProps): ReactNode {
       try {
         const module = await loadRingModule()
         if (disposed) return
-        handle = module.createContourRing({
+        handle = module.createOrbitMatrix({
           canvas,
           size: sizeRef.current,
           segments: segmentsRef.current,
