@@ -23,7 +23,8 @@
 - **不**额外调用模型 API、**不**注册 LLM Tool、**不**做 Dashboard 或 UI
 
 ### 实施顺序
-根据文档，当前只做 **步骤 1**：获取统计数据（`session/event` → `deriveTurnTokenUsage` → log）
+按文档顺序实现 **步骤 1**（获取统计数据：`session/event` → `deriveTurnTokenUsage`），
+再是步骤 2（持久化）与步骤 3（数据通道 + Client）。当前三步均已实现。
 
 ## 2. 核心概念
 
@@ -76,18 +77,34 @@ turn 的完整生命周期事件：
 
 ### 3.2 关键逻辑
 
+事件段由 `src/turn-events.ts` 的 `TurnCollector` 在**事件流上**攒出来——
+不回读会话历史（harness 已弃用 `session.snapshotEvents()`，见 README「不回读会话历史」）：
+
 ```ts
-function apply(_ctx: Context): void {
-  // TODO: 步骤 1: session/event → deriveTurnTokenUsage → log
+export function apply(ctx: Context): void {
+  ctx.inject(['connection'], (child) => { registerUsageRoutes(child) })
+  const collector = new TurnCollector()
+
+  ctx.on('session/event', (session: Session, event: SessionEvent) => {
+    const slice = collector.push(session.id, event)
+    if (event.type !== 'turn/end') return
+
+    const usage = deriveTurnTokenUsage(slice)
+    if (usage === undefined) {
+      console.warn('[usage-dashboard] 无结果')
+      return
+    }
+    void persistTurnUsage(usage, event.time)
+  })
 }
 ```
 
 #### 3.2.1 事件监听流程
 
-1. **`session/event` 监听**：当 DSH 会话触发事件时，进入此回调
-2. **`turn/start` 处理**：初始化当前 turn 的缓冲，记录 turn 编号
-3. **事件聚合**：在 `turn/end` 时，将所有相关事件传递给 `deriveTurnTokenUsage`
-4. **统计结果**：如果函数返回有效值，打印日志；否则记录 warning
+1. **`session/event` 监听**：每条会话事件都交给 `collector.push(session.id, event)`
+2. **`turn/start` 处理**：开一个缓冲，记录 turn 编号
+3. **事件聚合**：中间事件追加进缓冲；`turn/end` 时交出整段并释放缓冲
+4. **统计结果**：`deriveTurnTokenUsage` 返回有效值就落盘；否则记录 warning
 
 ### 3.3 为什么需要 turn 边界
 
@@ -105,20 +122,37 @@ function apply(_ctx: Context): void {
 
 ## 4. 关键代码逐行解释
 
-### 4.1 `src/index.ts` 的骨架
+### 4.1 `src/index.ts` 的入口
 
 ```ts
 export const name = 'usage-dashboard'
+export const inject: string[] = []
 
-export function apply(_ctx: Context): void {
-  // TODO 步骤 1: session/event → deriveTurnTokenUsage → log（见 docs/01-collect-usage-stats.md）
+export function apply(ctx: Context): void {
+  ctx.inject(['connection'], (child) => { registerUsageRoutes(child) })
+  const collector = new TurnCollector()
+
+  ctx.on('session/event', (session: Session, event: SessionEvent) => {
+    const slice = collector.push(session.id, event)
+    if (event.type !== 'turn/end') return
+
+    const usage = deriveTurnTokenUsage(slice)
+    if (usage === undefined) {
+      console.warn(`[usage-dashboard] session ${session.id} turn ${event.data.turn}: 无结果`)
+      return
+    }
+
+    void persistTurnUsage(usage, event.time).then(/* … 落盘 … */)
+  })
 }
 ```
 
 **解释**：
 - `name`：插件名称，与 `cordis.patch.yml` 中的 `id` 一致
+- `inject`：插件级依赖为空——用量采集在所有形态下都该发生
+- `ctx.inject(['connection'], …)`：等 Connection 就绪后再注册认证路由（没有 Web 外壳时就没有路由）
 - `apply`：插件的主入口函数，接收 DSH 的 Context
-- 当前仅为骨架，需要实现步骤 1 的逻辑
+- `collector`：按会话收集 turn 事件段；`turn/end` 时交出并释放
 
 ### 4.2 `deriveTurnTokenUsage` 的核心流程
 
