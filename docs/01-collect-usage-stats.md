@@ -91,7 +91,7 @@ export function apply(ctx: Context): void {
 
     const usage = deriveTurnTokenUsage(slice)
     if (usage === undefined) {
-      console.warn('[usage-dashboard] 无结果')
+      console.warn('[dsh-usage-dashboard] 无结果')
       return
     }
     void persistTurnUsage(usage, event.time)
@@ -125,7 +125,7 @@ export function apply(ctx: Context): void {
 ### 4.1 `src/index.ts` 的入口
 
 ```ts
-export const name = 'usage-dashboard'
+export const name = 'dsh-usage-dashboard'
 export const inject: string[] = []
 
 export function apply(ctx: Context): void {
@@ -138,7 +138,7 @@ export function apply(ctx: Context): void {
 
     const usage = deriveTurnTokenUsage(slice)
     if (usage === undefined) {
-      console.warn(`[usage-dashboard] session ${session.id} turn ${event.data.turn}: 无结果`)
+      console.warn(`[dsh-usage-dashboard] session ${session.id} turn ${event.data.turn}: 无结果`)
       return
     }
 
@@ -228,7 +228,7 @@ pnpm dsh web --patch ../dsh-usage-dashboard/patch.dev.yml
 **验证方法**：
 1. 在 Web 里发一条会触发模型回复的消息
 2. 等 turn 结束（通常 1-3 秒）
-3. 查看 harness 终端是否打印 `[usage-dashboard] turn usage`
+3. 查看 harness 终端是否打印 `[dsh-usage-dashboard] turn usage`
 
 ### 6.2 步骤 1 的验收标准
 

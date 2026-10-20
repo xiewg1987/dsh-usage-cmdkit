@@ -42,7 +42,7 @@ import { clearUsageStats, fetchUsageSummary } from './usage-client.js'
 /** Props 由 slot 绑定与 locale 绑定组成，不要手工窄化。 */
 export type UsageDashboardProps =
   PropsRuntime<'sidebar.right.pane.tab'>
-  & PropsLocale<'usage'>
+  & PropsLocale<'dsh.usage'>
 
 /** 可切换的时间窗。 */
 type Range = 'today' | 'd7' | 'd30'

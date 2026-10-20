@@ -17,6 +17,15 @@
  * 注意：client 半挂在「说明符恰为裸包名」的 Loader 行上。
  * patch.dev.yml 若写 name: './src/index.ts'，则不会加载本半侧；
  * 要用右栏 Dashboard 请 `dsh plugin add` 本包（cordis.patch.yml 已是裸包名）。
+ *
+ * 全局标识的取名规则（详见 docs/03-remotes-and-client.md）：
+ * - `TAB_ID` 是**实现身份**，取包名，全球唯一。
+ * - `TAB_KIND` 是**类型判别符**，按 harness 惯例取短名（`guide` / `files` / `terminal`），
+ *   **不要改名**：右栏已打开的 Tab 会把 kind 持久化下来，改名会让它们一律变成
+ *   「这类内容还没有可用的查看方式」。
+ * - `NS` 是 locale 字典命名空间，全局唯一，而且 `LocaleNamespaceMap` 是
+ *   TypeScript 层面的**全局声明合并点**——撞名会让**对方的包**编译失败，
+ *   所以带 `dsh.` 段前缀，不占用通用裸词。
  */
 
 // 仅类型：把 locale / slots / SlotMap 合并进 Context；值导入会撞上 client bundle 纯净度门禁。
@@ -32,21 +41,35 @@ import { en, zh, type UsageKey } from './locales.js'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** 用量 Dashboard 的文案。 */
-    usage: UsageKey
+    'dsh.usage': UsageKey
   }
 }
 
-/** 与 locales 共享的字典命名空间。 */
-export const NS = 'usage'
+/**
+ * 与 locales 共享的字典命名空间。
+ *
+ * 命名空间是**所有插件共享**的声明合并点（`LocaleNamespaceMap`），
+ * 裸词 `usage` 这类通用名迟早会撞上别人——撞了会让对方的包编译失败，
+ * 所以这里带 `dsh.` 段前缀。
+ */
+export const NS = 'dsh.usage'
 
 /**
  * tab 类型的实现身份：body 与 title 都以它为 key 注册。
  *
- * 必须是全局唯一的实现身份（包名是自然取值），kind 则只是类型判别符。
+ * 必须是全局唯一的实现身份；这里取包名，全球唯一且一眼可溯源。
  */
 export const TAB_ID = 'dsh-usage-dashboard'
 
-/** tab 类型（kind）：`ctx.sidebarRight.openTab('usage-dashboard')` 用它开页。 */
+/**
+ * tab 类型（kind）：`ctx.sidebarRight.openTab('usage-dashboard')` 用它开页。
+ *
+ * kind 是「类型判别符」而非实现身份，harness 侧一律取短名
+ * （`guide` / `files` / `terminal` / `plan`），本值沿用同一惯例。
+ *
+ * **不要改名**：右栏每个已打开的 Tab 都把 kind 记在会话的持久化状态里，
+ * 改了名，旧 Tab 会找不到在册的类型，一律显示「这类内容还没有可用的查看方式」。
+ */
 export const TAB_KIND = 'usage-dashboard'
 
 /** 依赖的服务：slot 注册、locale 字典、右栏 tab 注册表。 */

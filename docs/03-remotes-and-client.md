@@ -38,8 +38,20 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 ## Client
 
 - 槽位：**右栏 Tab**——`ctx.sidebarRightTabs.register({ id, kind, title, guide })`
-  加上 `sidebar.right.pane.tab` / `sidebar.right.pane.tab.title` 两个 seat 的注册
-  （实现身份 `TAB_ID` = `dsh-usage-dashboard`）。
+  加上 `sidebar.right.pane.tab` / `sidebar.right.pane.tab.title` 两个 seat 的注册。
+- 三个全局标识的取名（`src/client/index.ts`）：
+
+  | 标识 | 值 | 为什么这么取 |
+  |------|----|--------------|
+  | `TAB_ID` | `dsh-usage-dashboard` | **实现身份**，全局唯一，取包名 |
+  | `TAB_KIND` | `usage-dashboard` | **类型判别符**，harness 侧一律取短名（`guide` / `files` / `terminal`） |
+  | `NS` | `dsh.usage` | 字典命名空间，全局且是 TypeScript 全局声明合并点，带段前缀避开通用裸词 |
+
+  ⚠️ **`TAB_KIND` 不要改名**：右栏每个已打开的 Tab 都把 kind 记进会话的持久化状态，
+  改名后旧 Tab 找不到在册的类型，一律显示「这类内容还没有可用的查看方式」。
+  `TAB_ID` 与 `NS` 则是纯运行时的，改动没有迁移代价。
+- 字典命名空间 `NS` = `dsh.usage`：`LocaleNamespaceMap` 是**所有插件共享**的声明合并点，
+  裸词 `usage` 迟早会撞上别人，而撞了会让**对方的包**编译失败，所以带 `dsh.` 段前缀。
 - `guide` 条目让用户从右栏引导页打开这个 Tab。
 - 数据：`fetch(USAGE_SUMMARY_ROUTE)`（同源），清空：`fetch(USAGE_CLEAR_ROUTE, { method: 'POST' })`。
 - 样式用内联 style：浏览器半是独立打包产物，不走 harness 的 CSS Modules 管线。

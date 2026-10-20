@@ -1,8 +1,12 @@
 # dsh plugin add / profile：裸包名才会加载 ./client（Dashboard）
 #   pnpm dsh plugin --profile web add D:/ScriptProject/dsh-usage-dashboard
 #   pnpm dsh web
+#
+# 行 id 用包名而不是通用词：Loader 的行 id 在同一 profile 内唯一，
+# 且 `ensureId` 对显式 id 不查重——两行同名会静默互相顶掉（插件人间蒸发，
+# 控制台不报错）。带包名前缀才能把这条路堵死。
 
 - insert:
-    - id: usage-dashboard
+    - id: dsh-usage-dashboard
       name: dsh-usage-dashboard
       config: {}

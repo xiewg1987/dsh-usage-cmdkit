@@ -93,7 +93,7 @@ pnpm dsh web
 
 同一次启动 **不要** 混用 `--patch` 与 `plugin add`。
 
-插件 patch 行：`id: usage-dashboard`，包名 `dsh-usage-dashboard`。
+插件 patch 行：`id: dsh-usage-dashboard`，包名 `dsh-usage-dashboard`（行 id 与包名同名：Loader 的行 id 在同一 profile 内唯一，同名会**静默**顶掉别人的行，不报错）。
 
 ## 目录
 

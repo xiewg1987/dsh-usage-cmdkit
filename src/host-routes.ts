@@ -33,7 +33,7 @@ export function registerUsageRoutes(ctx: Context): void {
     fetch: () => readUsageSummary().then(
       summary => Response.json(summary, { headers: NO_STORE }),
       (error: unknown) => {
-        console.error('[usage-dashboard] 读取用量汇总失败', error)
+        console.error('[dsh-usage-dashboard] 读取用量汇总失败', error)
         return new Response('usage summary unavailable', { status: 500 })
       },
     ),
@@ -46,7 +46,7 @@ export function registerUsageRoutes(ctx: Context): void {
     fetch: () => clearUsage().then(
       () => Response.json({ cleared: true }, { headers: NO_STORE }),
       (error: unknown) => {
-        console.error('[usage-dashboard] 清空用量失败', error)
+        console.error('[dsh-usage-dashboard] 清空用量失败', error)
         return new Response('usage clear failed', { status: 500 })
       },
     ),

@@ -8,7 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 /** Props 由 slot 绑定与 locale 绑定组成。 */
 export type UsageTitleProps =
   PropsRuntime<'sidebar.right.pane.tab.title'>
-  & PropsLocale<'usage'>
+  & PropsLocale<'dsh.usage'>
 
 /**
  * 渲染 Tab 标题。
