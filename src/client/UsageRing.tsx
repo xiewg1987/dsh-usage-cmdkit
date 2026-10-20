@@ -17,17 +17,13 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../protocol.js'
 import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT, rgba } from './usage-theme.js'
 import { EASE_LINEAR, EASE_OUT, useCountUp } from './usage-motion.js'
+import { RING_KEYS, placeRingLabels, ringSegments, type RingLabel } from './usage-ring-geometry.js'
 
 /** 环的两种形态：窄栏里的紧凑环、宽面板时的双栏大环。 */
 export type RingVariant = 'compact' | 'wide'
 
 /** 四个桶的固定顺序：与环上分段、条形、环外标签同序。 */
-export const RING_KEYS = [
-  'uncachedInputTokens',
-  'outputTokens',
-  'cacheReadTokens',
-  'cacheWriteTokens',
-] as const
+export { RING_KEYS }
 
 /**
  * 形态参数：几何比例与字号。
@@ -39,10 +35,13 @@ export const RING_KEYS = [
  * 字号是**环径的比例**而不是固定像素：窄栏的小环与宽面板的大环
  * 换算下来，文字与环的关系保持一致（设计稿就是按画布缩放排的）。
  */
-const VARIANT = {
+const RING_VARIANT = {
   compact: { headline: 0.137, caption: 0.033, sub: 0.033, headlineGap: 0.004, lineGap: 0.083, subGap: 0.055 },
   wide: { headline: 0.13, caption: 0.03, sub: 0.03, headlineGap: 0.005, lineGap: 0.08, subGap: 0.052 },
 } as const
+
+/** 两种形态的几何参数：3D 环的读数排版也用这一份。 */
+export { RING_VARIANT }
 
 /** 弧线路径半径占画布的比例（描边居中，所以外缘落在 50%）。 */
 const RADIUS_RATIO = 0.465
@@ -51,28 +50,12 @@ const RADIUS_RATIO = 0.465
 const STROKE_RATIO = 0.07
 
 /**
- * 环外标签的最小占比。
+ * 环外标签：每个桶一个百分比。
  *
- * 比这更小的桶在环上几乎看不见，标出来只会和邻居叠在一起——
- * 叠在一起的标签比没有标签更难读。
+ * 类型与挑选规则都在 `usage-ring-geometry.ts`：3D 环与 SVG 环共用，
+ * 降级时构图才不会跳。
  */
-const MIN_LABEL_SHARE = 0.005
-
-/**
- * 环外标签之间的最小角距（弧度）。
- *
- * 某一桶独大时，其余几桶的弧段会挤在一小段上，标签跟着挤成一团。
- * 角距太近就只留占比大的那个，另一个让位。
- */
-const MIN_LABEL_GAP = 0.28
-
-/** 环外标签：每个桶一个百分比。 */
-export interface RingLabel {
-  /** 桶的键。 */
-  key: string
-  /** 展示文本。 */
-  text: string
-}
+export type { RingLabel }
 
 /** 环需要的入场节拍。 */
 export interface RingTiming {
@@ -119,24 +102,15 @@ export function UsageRing(props: UsageRingProps): ReactNode {
   const { buckets, total, format, caption, captionAccent, sub, size, variant, labels, timing } = props
   // useId 带冒号，做 URL 片段引用要清掉。
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const v = VARIANT[variant]
+  const v = RING_VARIANT[variant]
   const center = size / 2
   const radius = size * RADIUS_RATIO
   const stroke = size * STROKE_RATIO
   const outer = radius + stroke / 2
-  const sum = RING_KEYS.reduce((acc, key) => acc + buckets[key], 0)
   const circumference = 2 * Math.PI * radius
 
-  // 四段弧：从十二点方向顺时针铺开，段与段之间留自然缺口。
-  let cursor = -Math.PI / 2
-  const segments = RING_KEYS.map((key, index) => {
-    const value = buckets[key]
-    const share = sum > 0 ? value / sum : 0
-    const from = cursor
-    const to = cursor + share * Math.PI * 2
-    cursor = to
-    return { key, index, value, share, from, to }
-  })
+  // 四段弧：从十二点方向顺时针铺开（与 3D 环共用同一份几何）。
+  const segments = ringSegments(buckets)
 
   /**
    * 弧段起点的周长偏移（px）。
@@ -146,33 +120,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
   const arcOffset = (from: number, pathRadius: number): number => (from + Math.PI / 2) * pathRadius
 
   // 环外标签先挑一遍：太小的不标，角距太近的只留占比大的那个。
-  const visibleLabels = labels === undefined
-    ? []
-    : labels.reduce<{ index: number; text: string; mid: number; share: number }[]>((kept, label, index) => {
-      const segment = segments[index]
-      if (segment === undefined) return kept
-      const candidate = {
-        index,
-        text: label.text,
-        mid: (segment.from + segment.to) / 2,
-        share: segment.share,
-      }
-      if (candidate.share < MIN_LABEL_SHARE) return kept
-      const clash = kept.find((other) => {
-        const raw = Math.abs(other.mid - candidate.mid)
-        const gap = Math.min(raw, Math.PI * 2 - raw)
-        return gap < MIN_LABEL_GAP
-      })
-      if (clash === undefined) {
-        kept.push(candidate)
-        return kept
-      }
-      // 撞上了就留占比大的那条。
-      if (candidate.share > clash.share) {
-        kept[kept.indexOf(clash)] = candidate
-      }
-      return kept
-    }, [])
+  const visibleLabels = placeRingLabels(segments, labels ?? [])
 
   // 入场用的 ref：色弧（本体 + 镜面高光各一组）、底环、柔光层。
   const arcRefs = useRef<(SVGCircleElement | null)[]>([])

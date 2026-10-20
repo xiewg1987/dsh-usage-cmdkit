@@ -24,7 +24,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { UsageBuckets, UsageProviderTotal, UsageSummary } from '../protocol.js'
-import { UsageRing, RING_KEYS, type RingLabel } from './UsageRing.js'
+import { RING_KEYS, type RingLabel } from './UsageRing.js'
+import { UsageRing3D } from './UsageRing3D.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
 import {
   BrandHeader,
@@ -445,7 +446,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   )
 
   const ring = (
-    <UsageRing
+    <UsageRing3D
       buckets={shown}
       total={total}
       format={formatCompact}

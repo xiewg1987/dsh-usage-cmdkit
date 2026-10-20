@@ -27,6 +27,7 @@
 | 刷新 / 清空 | ✅ 已发布 |
 | 多分辨率布局（窄栏堆叠 / 宽面板 hero） | ✅ 已发布 |
 | v4 视觉 + 入场动效 | ✅ 已发布 |
+| 3D 等高线层环（three.js，无 WebGL 自动降级） | ✅ 已发布 |
 | 中英文文案 | ✅ 已发布 |
 | 缓存命中率指标（命中 / 总输入） | ✅ 已发布 |
 | 花费估算（内置默认费率表） | ✅ 已发布 |
@@ -66,6 +67,9 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 - **自适应布局** —— 按面板**实测宽度**选布局（≥900px 走双栏 hero 版，860px 以下回落窄栏，带迟滞免得来回横跳），不按 `sidebar.fullscreen`——窗口窄时右栏会自动全屏，那时可用宽度反而更小。窄栏堆叠、宽面板左环右数据。
 - **一屏装下** —— 右栏的高度随窗口变，固定尺寸的设计稿定不了这件事，所以面板在运行时量：内容比一屏高多少，环就缩多少（环径下限 118px）；窗口矮于 820px 时再切一档「紧凑密度」（行距、字号、环径下限一起收紧）。实测 360×720 到 1280×900 各档都是零滚动条，底栏（刷新 / 清空）永远可见。
 - **v4 视觉与入场动效** —— 近黑底 + 平视网格底纹 + 唯一强调色电光蓝；入场按编排落位（品牌头 → 视图 Tab / 时间窗 → 环与弧 → 双指标 → 四行遥测 → 洞察 → ⌘K 条 → 底栏），刷新走插值不重播。
+- **3D 等高线层环** —— 主环从 2D SVG 换成 three.js 场景：六层细环片叠成浮雕环，每层按四桶分四段色弧，层间固定错位 + 极轻摆动，外层跑一道扫描光弧。**图是 3D 的，数字与标签是普通 DOM 文字**——环心总览与环外百分比不随透视变形，环外标签随弧段实时投影定位。倾斜 30°+ 的视角 + 0.1 rad/s 空闲慢自转（约 63s 一圈）。
+- **不烧帧** —— 入场与弧长插值满帧，空闲自转只跑 **20fps** 步进，面板不可见时整帧跳过（连场景更新都省掉）；整帧 27 次 draw call，不随时间增长。
+- **能降级** —— 拿不到 WebGL（虚拟机 / 远程桌面 / 禁硬件加速）、分片加载失败或建场失败，直接退回 2D SVG 环，功能一条不少，控制台留一条告警；运行中 `webglcontextlost` 立刻切回 SVG，上下文恢复后自动切回 3D。
 
 **计划中**
 
@@ -94,6 +98,18 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 
 ## 截图
 
+### 真实运行效果
+
+下面是**真实 DSH Web 宿主里跑出来的**面板（本地真实用量数据，主环为 3D 等高线层环）：
+
+![DSH Web 宿主里的用量面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-host.png)
+
+| 宽面板 | 窄栏堆叠 |
+|---|---|
+| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-wide.png) | ![窄栏堆叠](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-narrow.png) |
+
+### v4 设计稿
+
 ![Usage 侧栏与命令面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-1280x720.png)
 
 上图是 **v4 设计稿**：左侧 Usage 侧栏，右侧 ⌘K 命令面板。当前实现到左边的
@@ -107,6 +123,7 @@ Overview——环 + 缓存命中率 / 花费估算 + 四桶遥测 + 按来源 + 
 | ![窄栏堆叠版](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-360x800.png) | ![面板 hero 版](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-720x420.png) |
 
 > 视觉稿源文件（SVG + 生成脚本）在 `design/_v4_src/`，本地工作区，不入库。
+> 3D 环的动效基准（入场时间表、帧率预算、降级表）见 [design/motion-spec.md §2.3](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/motion-spec.md)。
 
 ---
 
@@ -205,13 +222,16 @@ src/
     index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND
     UsageDashboard.tsx / UsageRing.tsx / UsageTelemetry.tsx / UsageTitle.tsx
     UsageChrome.tsx  v4 外框件：底纹、品牌头、视图 Tab、时间窗、双指标、底栏
+    UsageRing3D.tsx  3D 环宿主：canvas + DOM 读数覆盖层 + 降级到 SVG 环
+    usage-3d.ts      three.js 场景：等高线层环、暗盘、光晕、扫描弧、投影标签
+    usage-ring-geometry.ts  2D / 3D 共用的分段与标签规则
     usage-motion.ts  入场编排的时间表与 Web Animations 原语
     usage-pricing.ts 费率表与成本 / 命中率算式
     usage-client.ts  取数与窗口状态
     usage-theme.ts   视觉常量
     locales.ts       zh 为键集事实来源，en 同键集
 scripts/
-  build-client.mjs   浏览器半 → lib/client.js（esbuild，lazy-CJS factory）
+  build-client.mjs   浏览器半 → lib/client.js（入口）+ lib/client.usage3d.js（3D 分片）
 docs/                实施文档（00 统一说明 + 01/02/03 步骤文档）
 design/              视觉稿（v4 成图已入库，源文件在 _v4_src/，本地）
 cordis.patch.yml     插件装载行（裸包名才会加载 client 半）
@@ -229,11 +249,27 @@ pnpm install
 pnpm run typecheck      # tsc --noEmit
 pnpm run build          # Host 半 + 浏览器半（产物，不入库）
 pnpm run build:host     # → lib/index.js（Host 半，发布用）
-pnpm run build:client   # → lib/client.js（浏览器半）
+pnpm run build:client   # → lib/client.js（入口）+ lib/client.usage3d.js（3D 分片）
 ```
 
 > `pnpm run build` 也会在 `npm publish` 前自动跑（`prepublishOnly`）。
 > 仓库根的 `pnpm-workspace.yaml` 放行了 esbuild 的构建脚本——它要靠 postinstall 落地平台二进制。
+
+### 产物体积：3D 环是按需加载的
+
+three.js **整包内联**进产物，但**不塞进首屏入口**：
+
+| 产物 | 体积 | 什么时候拉 |
+|------|------|-----------|
+| `lib/client.js`（入口） | ≈34 KB | 面板打开即加载 |
+| `lib/client.usage3d.js`（分片） | ≈540 KB | 面板需要 3D 环时才按需拉 |
+
+宿主提供的 client 分片机制是 `require.async('./client.<名字>.js')`，分片文件名必须匹配
+`client.<名字>.js`。**把 three 整包打进入口的话首屏会变成 574 KB**，所以这里拆成两个产物：
+入口只留加载器与降级路径，分片拉不到就退回 2D SVG 环。
+
+> `three` 与 `@types/three` 放在 **devDependencies**：运行时它已经被内联进产物，
+> 不需要从 npm 装；放进 dependencies 反而会让宿主 profile 多装一份。
 
 ### 本地联调
 
@@ -265,6 +301,11 @@ pnpm dsh web
 - **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md)。
 - **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
+- **3D 环的三个坑**（都踩过，记在这儿）：
+  - **透明 + 双面材质会被画两遍**。three 默认对 `transparent: true` 且 `side: DoubleSide` 的材质先画背面再画正面，每次切换还置 `needsUpdate` → 每帧重编译着色器。开 `forceSinglePass: true` 后 draw call 从 51 降到 27，着色器编译从 2670/s 降到 267/s。
+  - **环境贴图要自己转一次**。直接把等距柱状图丢给 `scene.environment`，three 每次取用都会重跑转换；先 `pmrem.fromEquirectangular()` 转好再赋值。
+  - **层间错位不能随时间累积**。写成转速的倍数的话，跑上几分钟层与层就散架，四色的边界再也对不上——用固定值 + 极轻摆动。
+- **空闲只跑 20fps**。慢自转要看得见，但不值得烧 60fps（也是「禁 60FPS 刷屏」的硬要求）。帧率门槛放在**场景更新之前**，跳过的帧连场景更新都省掉。
 
 ### 文档
 
