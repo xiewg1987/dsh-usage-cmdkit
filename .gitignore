@@ -1,6 +1,9 @@
 node_modules/
 dist/
+lib/
 *.tsbuildinfo
 .DS_Store
 data/**
 !data/.gitkeep
+.dsh-web*.log
+.dsh-web*.log.err

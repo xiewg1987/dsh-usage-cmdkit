@@ -14,6 +14,9 @@ importers:
       '@deepseek-ai/cordis-plugin-loader':
         specifier: link:../deepseek-harness/vendor/loader
         version: link:../deepseek-harness/vendor/loader
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../deepseek-harness/packages/client/connection
+        version: link:../deepseek-harness/packages/client/connection
       '@deepseek-ai/dsh-client-locale':
         specifier: link:../deepseek-harness/packages/client/locale
         version: link:../deepseek-harness/packages/client/locale
@@ -23,6 +26,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-renderer':
         specifier: link:../deepseek-harness/packages/client/ui-renderer
         version: link:../deepseek-harness/packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-sidebar-right':
+        specifier: link:../deepseek-harness/packages/client/ui-sidebar-right
+        version: link:../deepseek-harness/packages/client/ui-sidebar-right
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: link:../deepseek-harness/packages/client/ui-slots
         version: link:../deepseek-harness/packages/client/ui-slots
@@ -41,6 +47,9 @@ importers:
       '@types/react':
         specifier: ~18.3.1
         version: 18.3.31
+      esbuild:
+        specifier: link:../deepseek-harness/packages/boot/hmr/node_modules/esbuild
+        version: link:../deepseek-harness/packages/boot/hmr/node_modules/esbuild
       react:
         specifier: ^18.2.0
         version: 18.2.0

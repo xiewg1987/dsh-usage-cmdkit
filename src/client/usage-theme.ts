@@ -1,0 +1,94 @@
+/**
+ * 用量面板的设计令牌：深空遥测台配色。
+ *
+ * 一条规则贯穿全套令牌：**强调色只有电光蓝一种**，
+ * 四色只出现在环段、进度条与它们的图例文字上，正文文字一律中性灰阶。
+ * 这样背景永远是干净的近黑，视线只会落在数据上。
+ */
+
+/** 面板底色：近黑。 */
+export const SURFACE = '#07090f'
+
+/** 面板描边。 */
+export const EDGE = 'rgba(255,255,255,0.07)'
+
+/** 主文字。 */
+export const TEXT = '#e9edf4'
+
+/** 次级文字：副文案、数值后缀。 */
+export const MUTED = '#8e99af'
+
+/** 三级文字：页脚与微标。 */
+export const FAINT = '#6b7688'
+
+/** 唯一强调色：电光蓝。 */
+export const ACCENT = '#4c8dff'
+
+/** 四个 token 桶的品类色：只用于环段与条形。 */
+export const BUCKET_COLORS = ['#4c8dff', '#22c55e', '#a855f7', '#f59e0b'] as const
+
+/**
+ * 环段与进度条的玻璃渐变三档：顶光提亮、基色、底部压暗。
+ *
+ * 顺序与 {@link BUCKET_COLORS} 一一对应。
+ */
+export const BUCKET_GLASS = [
+  { hi: '#6498ff', base: '#4c8dff', lo: '#4782f5' },
+  { hi: '#2ecc71', base: '#22c55e', lo: '#20bd5a' },
+  { hi: '#b56bf9', base: '#a855f7', lo: '#a050f0' },
+  { hi: '#f9a72e', base: '#f59e0b', lo: '#ee980a' },
+] as const
+
+/** 正文无衬线字体栈：与设计稿同款 Inter 优先，缺字时退回系统无衬线。 */
+export const FONT_SANS = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+
+/** 微标等宽字体栈。 */
+export const FONT_MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+
+/**
+ * 把十六进制色转成带透明度的 rgba 字符串。
+ * @param hex - `#rrggbb` 形式的颜色。
+ * @param alpha - 0–1 的透明度。
+ * @returns rgba 颜色串。
+ */
+export function rgba(hex: string, alpha: number): string {
+  const value = hex.replace('#', '')
+  const r = parseInt(value.slice(0, 2), 16)
+  const g = parseInt(value.slice(2, 4), 16)
+  const b = parseInt(value.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/**
+ * 千分位整数。
+ * @param value - 计数。
+ * @returns 带千分位分隔的整数。
+ */
+export function formatCount(value: number): string {
+  return value.toLocaleString()
+}
+
+/**
+ * 紧凑数字：环心的大字与日均都用它。
+ *
+ * 千分位用大写 K / M，与设计稿的 `742.6K` 一致；
+ * 一千以下取整，免得日均这类除出来的数露出长小数。
+ * @param value - 计数。
+ * @returns 形如 `742.6K` / `328` / `980` 的短串。
+ */
+export function formatCompact(value: number): string {
+  if (value < 1000) return String(Math.round(value))
+  if (value < 1_000_000) return `${(value / 1000).toFixed(1)}K`
+  return `${(value / 1_000_000).toFixed(1)}M`
+}
+
+/**
+ * 百分比：整数值，四舍五入。
+ * @param value - 计数。
+ * @param total - 总量。
+ * @returns 0–100 的整数百分比。
+ */
+export function percentOf(value: number, total: number): number {
+  if (total <= 0) return 0
+  return Math.round((value / total) * 100)
+}
