@@ -5,7 +5,7 @@
 *Local DSH Web plugin — usage telemetry in the sidebar, plus a global command palette (Ctrl+K / ⌘K).*
 
 [![npm](https://img.shields.io/npm/v/dsh-usage-cmdkit.svg)](https://www.npmjs.com/package/dsh-usage-cmdkit)
-[![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](./LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/LICENSE)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--alpha-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 一个扩展，两个面：
@@ -86,7 +86,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 
 ## 截图
 
-![Usage 侧栏与命令面板](design/dsh-cmdkit-v4-1280x720.png)
+![Usage 侧栏与命令面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-1280x720.png)
 
 上图是 **v4 设计稿**：左侧 Usage 侧栏，右侧 ⌘K 命令面板。当前实现到左边的
 Overview（环 + 四桶 + 按来源 + 时间窗），右半部分与左侧的 Cost / Top /
@@ -94,7 +94,7 @@ Alerts 标签页、底部导出动作都还在开发中。
 
 | 窄栏堆叠版 | 面板 hero 版 |
 |---|---|
-| ![窄栏堆叠版](design/dsh-cmdkit-v4-360x800.png) | ![面板 hero 版](design/dsh-cmdkit-v4-720x420.png) |
+| ![窄栏堆叠版](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-360x800.png) | ![面板 hero 版](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-720x420.png) |
 
 > 视觉稿源文件（SVG + 生成脚本）在 `design/_v4_src/`，本地工作区，不入库。
 
@@ -249,17 +249,17 @@ pnpm dsh web
 ### 实现要点
 
 - **不回读会话历史。** harness 已弃用 `session.snapshotEvents()`，存储演进后完整事件序列不再保证常驻内存。改为在 `session/event` 流上就地攒一个 turn 的段：`turn/start` 开缓冲、`turn/end` 交出。内存占用与 turn 长度成正比，与会话历史长度无关。
-- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/03-remotes-and-client.md](./docs/03-remotes-and-client.md)。
+- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md)。
 - **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
 
 ### 文档
 
-- [docs/README.md](./docs/README.md) —— 实施顺序与索引
-- [docs/00-项目说明.md](./docs/00-项目说明.md) —— 项目总览与学习文档
-- [docs/01-collect-usage-stats.md](./docs/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
-- [docs/02-persist-stats.md](./docs/02-persist-stats.md) —— 步骤 2：持久化 JSON
-- [docs/03-remotes-and-client.md](./docs/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
+- [docs/README.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/README.md) —— 实施顺序与索引
+- [docs/00-项目说明.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/00-项目说明.md) —— 项目总览与学习文档
+- [docs/01-collect-usage-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
+- [docs/02-persist-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/02-persist-stats.md) —— 步骤 2：持久化 JSON
+- [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
 
 ### 外部参考
 
@@ -285,4 +285,4 @@ pnpm dsh web
 
 ## License
 
-[MIT](./LICENSE) —— 除非另有说明。
+[MIT](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/LICENSE) —— 除非另有说明。
