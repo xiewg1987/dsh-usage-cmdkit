@@ -1,4 +1,4 @@
-# dsh-usage-dashboard
+# dsh-usage-cmdkit
 
 DSH 第三方插件：在 **DSH Web** 里展示 **本地 token 用量 Dashboard**（圆环、按来源/时间聚合）。  
 数据来自 harness 已有 **session / turn usage**；Host **写 profile 下 JSON**；Client 经 **认证路由** 读聚合。**不**额外调模型、**不**依赖开放平台统计 API。
@@ -93,7 +93,7 @@ pnpm dsh web
 
 同一次启动 **不要** 混用 `--patch` 与 `plugin add`。
 
-插件 patch 行：`id: dsh-usage-dashboard`，包名 `dsh-usage-dashboard`（行 id 与包名同名：Loader 的行 id 在同一 profile 内唯一，同名会**静默**顶掉别人的行，不报错）。
+插件 patch 行：`id: dsh-usage-cmdkit`，包名 `dsh-usage-cmdkit`（行 id 与包名同名：Loader 的行 id 在同一 profile 内唯一，同名会**静默**顶掉别人的行，不报错）。
 
 ## 目录
 

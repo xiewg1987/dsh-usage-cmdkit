@@ -7,6 +7,6 @@
 # 控制台不报错）。带包名前缀才能把这条路堵死。
 
 - insert:
-    - id: dsh-usage-dashboard
-      name: dsh-usage-dashboard
+    - id: dsh-usage-cmdkit
+      name: dsh-usage-cmdkit
       config: {}

@@ -1,4 +1,4 @@
-# dsh-usage-dashboard 学习文档
+# dsh-usage-cmdkit 学习文档
 
 > **注意：本文档是给新手学习用的，会详细解释每个概念、代码逻辑和实现路径。建议您在阅读时打开对应的代码文件进行对照。**
 
@@ -15,7 +15,7 @@
 
 ## 1. 项目概述
 
-`dsh-usage-dashboard` 是 DeepSeek Harness（DSH）的一个第三方插件，用于在 DSH Web 侧边栏展示本地 Token 用量 Dashboard。
+`dsh-usage-cmdkit` 是 DeepSeek Harness（DSH）的一个第三方插件，用于在 DSH Web 侧边栏展示本地 Token 用量 Dashboard。
 
 ### 核心目标
 - 在 turn 结束后，准确统计每次对话的 token 用量
@@ -91,7 +91,7 @@ export function apply(ctx: Context): void {
 
     const usage = deriveTurnTokenUsage(slice)
     if (usage === undefined) {
-      console.warn('[dsh-usage-dashboard] 无结果')
+      console.warn('[dsh-usage-cmdkit] 无结果')
       return
     }
     void persistTurnUsage(usage, event.time)
@@ -125,7 +125,7 @@ export function apply(ctx: Context): void {
 ### 4.1 `src/index.ts` 的入口
 
 ```ts
-export const name = 'dsh-usage-dashboard'
+export const name = 'dsh-usage-cmdkit'
 export const inject: string[] = []
 
 export function apply(ctx: Context): void {
@@ -138,7 +138,7 @@ export function apply(ctx: Context): void {
 
     const usage = deriveTurnTokenUsage(slice)
     if (usage === undefined) {
-      console.warn(`[dsh-usage-dashboard] session ${session.id} turn ${event.data.turn}: 无结果`)
+      console.warn(`[dsh-usage-cmdkit] session ${session.id} turn ${event.data.turn}: 无结果`)
       return
     }
 
@@ -211,7 +211,7 @@ export function apply(ctx: Context): void {
 ### 5.2 `patch.dev.yml` 与 `cordis.patch.yml` 的区别
 
 - `patch.dev.yml`：用于 Host 端的联调，**不加载 client**，只加载 `./src/index.ts`
-- `cordis.patch.yml`：用于 `plugin add` 时，**裸包名** `dsh-usage-dashboard`，会加载 `./client`
+- `cordis.patch.yml`：用于 `plugin add` 时，**裸包名** `dsh-usage-cmdkit`，会加载 `./client`
 
 **重要提示**：
 > 同一次启动**不要**混用 `--patch` 与 `plugin add`，因为 patch 的 `name: './src/index.ts'` 不会挂 `./client`。
@@ -228,7 +228,7 @@ pnpm dsh web --patch ../dsh-usage-dashboard/patch.dev.yml
 **验证方法**：
 1. 在 Web 里发一条会触发模型回复的消息
 2. 等 turn 结束（通常 1-3 秒）
-3. 查看 harness 终端是否打印 `[dsh-usage-dashboard] turn usage`
+3. 查看 harness 终端是否打印 `[dsh-usage-cmdkit] turn usage`
 
 ### 6.2 步骤 1 的验收标准
 

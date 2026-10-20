@@ -20,7 +20,7 @@ import { persistTurnUsage } from './usage-store.js'
  * 与 cordis.patch.yml 的行 id 取同一个值（都是包名），
  * 这样从日志反查插件、或者从 profile 里按 id 找行，都是同一个词。
  */
-export const name = 'dsh-usage-dashboard'
+export const name = 'dsh-usage-cmdkit'
 
 /**
  * Host 半没有必需的服务。
@@ -49,7 +49,7 @@ export function apply(ctx: Context): void {
 
     if (slice === undefined) {
       console.warn(
-        `[dsh-usage-dashboard] session ${id} turn ${turn}: 未收集到 turn/start…turn/end`
+        `[dsh-usage-cmdkit] session ${id} turn ${turn}: 未收集到 turn/start…turn/end`
         + '（插件加载晚于该 turn 起点，或该 turn 已在加载前结束）',
       )
       return
@@ -58,16 +58,16 @@ export function apply(ctx: Context): void {
     const usage = deriveTurnTokenUsage(slice)
     if (usage === undefined) {
       console.warn(
-        `[dsh-usage-dashboard] session ${id} turn ${turn}: deriveTurnTokenUsage 无结果`
+        `[dsh-usage-cmdkit] session ${id} turn ${turn}: deriveTurnTokenUsage 无结果`
         + '（无模型用量、生命周期不完整或 provider usage 字段不满足 fold 条件）',
       )
       console.warn(
-        `[dsh-usage-dashboard] 事件类型序列: ${slice.map(e => e.type).join(' → ')}`,
+        `[dsh-usage-cmdkit] 事件类型序列: ${slice.map(e => e.type).join(' → ')}`,
       )
       return
     }
 
-    console.log('[dsh-usage-dashboard] turn usage', {
+    console.log('[dsh-usage-cmdkit] turn usage', {
       sessionId: id,
       turn,
       ...usage,
@@ -76,12 +76,12 @@ export function apply(ctx: Context): void {
     // 步骤 2：按 turn 结束时刻的本地日写入 profile 下 JSON
     void persistTurnUsage(usage, event.time).then(({ path, dayKey, file }) => {
       const day = file.days[dayKey]?.total
-      console.log('[dsh-usage-dashboard] 已写入', path, {
+      console.log('[dsh-usage-cmdkit] 已写入', path, {
         dayKey,
         dayTotal: day,
       })
     }).catch((error: unknown) => {
-      console.error('[dsh-usage-dashboard] 写入 usage-stats.json 失败', error)
+      console.error('[dsh-usage-cmdkit] 写入 usage-stats.json 失败', error)
     })
   })
 }

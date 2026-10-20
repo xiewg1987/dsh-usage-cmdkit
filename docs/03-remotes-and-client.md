@@ -43,7 +43,7 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 
   | 标识 | 值 | 为什么这么取 |
   |------|----|--------------|
-  | `TAB_ID` | `dsh-usage-dashboard` | **实现身份**，全局唯一，取包名 |
+  | `TAB_ID` | `dsh-usage-cmdkit` | **实现身份**，全局唯一，取包名 |
   | `TAB_KIND` | `usage-dashboard` | **类型判别符**，harness 侧一律取短名（`guide` / `files` / `terminal`） |
   | `NS` | `dsh.usage` | 字典命名空间，全局且是 TypeScript 全局声明合并点，带段前缀避开通用裸词 |
 
@@ -60,7 +60,7 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 
   ```js
   var module = { exports: {} }; var exports = module.exports;
-  window.__ModuleLoader__.load({ id: 'dsh-usage-dashboard', factory: (require) => {
+  window.__ModuleLoader__.load({ id: 'dsh-usage-cmdkit', factory: (require) => {
     /* … CJS 产物 … */
     return module.exports; } });
   ```

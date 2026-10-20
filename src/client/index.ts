@@ -59,7 +59,7 @@ export const NS = 'dsh.usage'
  *
  * 必须是全局唯一的实现身份；这里取包名，全球唯一且一眼可溯源。
  */
-export const TAB_ID = 'dsh-usage-dashboard'
+export const TAB_ID = 'dsh-usage-cmdkit'
 
 /**
  * tab 类型（kind）：`ctx.sidebarRight.openTab('usage-dashboard')` 用它开页。
@@ -81,7 +81,7 @@ export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs']
  */
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-usage-dashboard: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-usage-cmdkit: dictionaries')
 
   ctx.effect(() => ctx.sidebarRightTabs.register({
     id: TAB_ID,
@@ -93,7 +93,7 @@ export function apply(ctx: ClientContext): void {
       title: () => t('tab.title'),
       description: () => t('tab.description'),
     }],
-  }), 'dsh-usage-dashboard: sidebar type')
+  }), 'dsh-usage-cmdkit: sidebar type')
 
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab', key: TAB_ID, locale: NS,

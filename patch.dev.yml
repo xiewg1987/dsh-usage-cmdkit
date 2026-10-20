@@ -5,6 +5,6 @@
 # 步骤 1 用本 patch 联调；Client 见 docs/03-remotes-and-client.md
 
 - insert:
-    - id: dsh-usage-dashboard
+    - id: dsh-usage-cmdkit
       name: './src/index.ts'
       config: {}

@@ -1,4 +1,4 @@
-# dsh-usage-dashboard 文档
+# dsh-usage-cmdkit 文档
 
 实施顺序（**先 Host、后 Client**），三步均已实现：
 

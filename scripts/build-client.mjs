@@ -22,7 +22,7 @@ const entry = join(root, 'src', 'client', 'index.ts')
 const outFile = join(root, 'lib', 'client.js')
 
 /** 插件 id：必须是包名，且与 cordis.patch.yml 里的裸包名一致。 */
-const PLUGIN_ID = 'dsh-usage-dashboard'
+const PLUGIN_ID = 'dsh-usage-cmdkit'
 
 /**
  * 走模块表解析的外部依赖。
