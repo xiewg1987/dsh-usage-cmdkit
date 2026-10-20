@@ -2,6 +2,10 @@
 
 右栏 Tab 的用量 Dashboard。步骤 3 见 **docs/03-remotes-and-client.md**。
 
+> 本目录目前只实现了整个扩展的 **Usage 面**（右栏用量面板）。
+> **Commands 面**（⌘K / Ctrl+K 全局命令面板）尚未进主干，
+> v4 设计稿见仓库根 `design/dsh-cmdkit-v4-1280x720.png` 的右半部分。
+
 | 文件 | 作用 |
 |------|------|
 | `index.ts` | 浏览器半入口：注册 locale 字典、右栏 tab 类型与两个 seat |

@@ -5,7 +5,7 @@
 *Local DSH Web plugin — usage telemetry in the sidebar, plus a global command palette (Ctrl+K / ⌘K).*
 
 [![npm](https://img.shields.io/npm/v/dsh-usage-cmdkit.svg)](https://www.npmjs.com/package/dsh-usage-cmdkit)
-[![license](https://img.shields.io/npm/l/dsh-usage-cmdkit.svg)](https://www.npmjs.com/package/dsh-usage-cmdkit)
+[![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](./LICENSE)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--alpha-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 一个扩展，两个面：
@@ -37,6 +37,10 @@
 | 快捷键改键 + 冲突检测 | 🚧 计划中 |
 
 🚧 = 计划中 / 开发中，尚未进主干。下面的功能清单会标注每一项的状态。
+
+> 「计划中」不是空话——**v4 设计稿已经画完了**（见 [截图](#截图)）：Usage 的
+> Cost / Top / Alerts 标签、缓存命中率、花费估算、日均 sparkline、Top3、导出动作，
+> 以及整个 ⌘K 命令面板，都在设计稿里等着实现。设计稿是这轮打磨的目标形态。
 
 ---
 
@@ -82,12 +86,17 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 
 ## 截图
 
-<!-- TODO(截图)：补齐下列三张后删掉本提示；Usage 两张可直接用 design/ 下的视觉稿 -->
+![Usage 侧栏与命令面板](design/dsh-cmdkit-v4-1280x720.png)
 
-| Usage 侧栏 | 命令面板 | 多分辨率 |
-|---|---|---|
-| ![Usage 侧栏](docs/images/usage-sidebar.png) | ![命令面板](docs/images/commands-palette.png) | ![多分辨率](docs/images/usage-multi-resolution.png) |
-| 宽面板 hero 版 | 🚧 开发中 | 360×800 / 400×520 / 720×420 / 1280×720 |
+上图是 **v4 设计稿**：左侧 Usage 侧栏，右侧 ⌘K 命令面板。当前实现到左边的
+Overview（环 + 四桶 + 按来源 + 时间窗），右半部分与左侧的 Cost / Top /
+Alerts 标签页、底部导出动作都还在开发中。
+
+| 窄栏堆叠版 | 面板 hero 版 |
+|---|---|
+| ![窄栏堆叠版](design/dsh-cmdkit-v4-360x800.png) | ![面板 hero 版](design/dsh-cmdkit-v4-720x420.png) |
+
+> 视觉稿源文件（SVG + 生成脚本）在 `design/_v4_src/`，本地工作区，不入库。
 
 ---
 
@@ -191,8 +200,13 @@ src/
 scripts/
   build-client.mjs   浏览器半 → lib/client.js（esbuild，lazy-CJS factory）
 docs/                实施文档（00 统一说明 + 01/02/03 步骤文档）
+design/              视觉稿（v4 成图已入库，源文件在 _v4_src/，本地）
 cordis.patch.yml     插件装载行（裸包名才会加载 client 半）
 patch.dev.yml        Host 源码联调（不加载 client 半）
+tsconfig.json        类型检查配置
+tsconfig.build.json  Host 半构建配置（→ lib/index.js）
+pnpm-workspace.yaml  pnpm 11 的包级设置（esbuild 构建白名单）
+LICENSE
 ```
 
 ### scripts
@@ -271,6 +285,4 @@ pnpm dsh web
 
 ## License
 
-<!-- TODO(License)：仓库根目录还没有 LICENSE 文件，补上后把下面这行替换成徽章链接 -->
-
-MIT —— 除非另有说明。
+[MIT](./LICENSE) —— 除非另有说明。
