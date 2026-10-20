@@ -2,11 +2,15 @@
  * 四行遥测列表：每个 token 桶一行。
  *
  * 名字与数量一律中性色，品类色只留给条形——
- * 和 hero 图的分工一致：颜色只标注数据，不参与排版。
+ * 和设计稿的分工一致：颜色只标注数据，不参与排版。
+ *
+ * 动效：入场时四行依次上浮淡入（错峰 45–50ms），
+ * 进度条同时从 0 宽填到目标占比；刷新时条宽平滑插值，不重播。
  */
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../protocol.js'
-import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from './usage-theme.js'
+import { BUCKET_GLASS, TEXT, formatCount, percentOf } from './usage-theme.js'
+import { EASE_LINEAR, EASE_OUT, riseIn } from './usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
 
 /** 列表的两种排版密度：窄栏里的小字、宽面板时的大字。 */
@@ -20,6 +24,16 @@ export interface TelemetryName {
   label: string
 }
 
+/** 列表需要的入场节拍。 */
+export interface TelemetryTiming {
+  /** 第一行起跑的时刻（毫秒）。 */
+  rows: number
+  /** 相邻两行的间隔（毫秒）。 */
+  rowStep: number
+  /** 进度条起跑的时刻（毫秒）。 */
+  bars: number
+}
+
 /** 遥测列表的属性。 */
 export interface UsageTelemetryProps {
   /** 四桶用量。 */
@@ -28,6 +42,8 @@ export interface UsageTelemetryProps {
   names: readonly TelemetryName[]
   /** 排版密度，默认侧栏的紧凑版。 */
   variant?: TelemetryVariant
+  /** 入场节拍。 */
+  timing: TelemetryTiming
 }
 
 /** 两种密度下的字号与间距。 */
@@ -38,12 +54,36 @@ const DENSITY = {
 
 /**
  * 渲染四行遥测列表。
- * @param props - 桶用量、每桶全名与排版密度。
+ * @param props - 桶用量、每桶全名、排版密度与入场节拍。
  * @returns 列表。
  */
-export function UsageTelemetry({ buckets, names, variant = 'compact' }: UsageTelemetryProps): ReactNode {
+export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
+  const { buckets, names, variant = 'compact', timing } = props
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
   const d = DENSITY[variant]
+
+  const rowRefs = useRef<(HTMLLIElement | null)[]>([])
+  const barRefs = useRef<(HTMLDivElement | null)[]>([])
+  const entered = useRef(false)
+
+  useEffect(() => {
+    if (entered.current) return
+    entered.current = true
+    names.forEach((name, index) => {
+      const delay = timing.rows + index * timing.rowStep
+      riseIn(rowRefs.current[index], delay, 180)
+      // 进度条：与行错峰并行，从 0 宽填到目标占比。
+      const bar = barRefs.current[index]
+      if (bar === null || bar === undefined) return
+      const share = percentOf(buckets[name.key], total)
+      bar.animate(
+        [{ width: '0%' }, { width: `${share}%` }],
+        { duration: 300, delay: timing.bars + index * timing.rowStep, easing: EASE_LINEAR, fill: 'backwards' },
+      )
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: d.gap }}>
       {names.map((name, index) => {
@@ -51,7 +91,11 @@ export function UsageTelemetry({ buckets, names, variant = 'compact' }: UsageTel
         const glass = BUCKET_GLASS[index]
         const share = percentOf(value, total)
         return (
-          <li key={name.key} style={{ display: 'flex', flexDirection: 'column', gap: d.labelGap }}>
+          <li
+            key={name.key}
+            ref={(node) => { rowRefs.current[index] = node }}
+            style={{ display: 'flex', flexDirection: 'column', gap: d.labelGap }}
+          >
             <div
               style={{
                 display: 'flex',
@@ -60,29 +104,57 @@ export function UsageTelemetry({ buckets, names, variant = 'compact' }: UsageTel
                 gap: 12,
               }}
             >
-              <span
-                style={{
-                  fontSize: d.font,
-                  fontWeight: 500,
-                  letterSpacing: '0.02em',
-                  textTransform: 'uppercase',
-                  color: TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {name.label}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                {/* 品类色的小圆点：桶的图例标记，和条形、环段是同一套颜色。 */}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: glass.base,
+                    boxShadow: `0 0 6px ${glass.base}99`,
+                    flex: 'none',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: d.font,
+                    fontWeight: 500,
+                    letterSpacing: '0.02em',
+                    textTransform: 'uppercase',
+                    color: TEXT,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {name.label}
+                </span>
               </span>
-              <span
-                style={{
-                  fontSize: d.font,
-                  fontWeight: 600,
-                  color: TEXT,
-                  fontVariantNumeric: 'tabular-nums',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {formatCount(value)}
-                <span style={{ fontWeight: 400, color: MUTED }}> · {share}%</span>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 16, flex: 'none' }}>
+                <span
+                  style={{
+                    fontSize: d.font,
+                    fontWeight: 600,
+                    color: TEXT,
+                    fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {formatCount(value)}
+                </span>
+                {/* 百分比是这条桶的图例文字，跟着桶色走。 */}
+                <span
+                  style={{
+                    fontSize: d.font,
+                    fontWeight: 600,
+                    color: glass.base,
+                    fontVariantNumeric: 'tabular-nums',
+                    textAlign: 'right',
+                    minWidth: 34,
+                  }}
+                >
+                  {share}%
+                </span>
               </span>
             </div>
             {/* 条长 = 占总 token 的比例，与环上百分比一致。 */}
@@ -96,6 +168,7 @@ export function UsageTelemetry({ buckets, names, variant = 'compact' }: UsageTel
               }}
             >
               <div
+                ref={(node) => { barRefs.current[index] = node }}
                 style={{
                   position: 'absolute',
                   inset: '0 auto 0 0',
@@ -103,6 +176,7 @@ export function UsageTelemetry({ buckets, names, variant = 'compact' }: UsageTel
                   borderRadius: 2,
                   background: `linear-gradient(180deg, ${glass.hi} 0%, ${glass.base} 100%)`,
                   boxShadow: `0 0 8px ${glass.base}66`,
+                  transition: `width 380ms ${EASE_OUT}`,
                 }}
               />
             </div>

@@ -1,17 +1,21 @@
 /**
  * 右栏 Tab 的面板：用量 Dashboard。
  *
- * 视觉是「深空遥测台」：近黑底、唯一强调色（电光蓝）、
- * 四色只出现在环段与进度条上，所有文字中性。
+ * 视觉是 v4 设计稿那一套「深空遥测台」：近黑底、平视网格底纹、
+ * 唯一强调色（电光蓝）、四色只出现在环段与进度条上，所有文字中性。
  * 数据仍然来自本机记录的四桶 token，窗口可选今日 / 7 日 / 30 日。
  *
  * 两种形态由面板**实测宽度**决定：
- * - 窄（不到 1200px）：环在上、四行遥测在下的堆叠版。
- * - 宽（1200px 以上）：hero 版，左列表右主环，和 Figma 的那张图同一套构图。
+ * - 窄（不到 900px）：右栏窄态的堆叠版——环在上、双 KPI 与四行在下。
+ * - 宽（900px 以上）：左环右数据的双栏版（全屏时的主形态）。
  *
  * 判据是量出来的宽度，不是 `useTabInfo().sidebar.fullscreen`：
  * 那个标志只说明面板盖住了整块视口，窗口窄的时候右栏反而会自动全屏，
  * 那时可用宽度更小——按标志选布局会套错构图。
+ *
+ * 动效见 `design/motion-spec.md` 与 `usage-motion.ts`：
+ * 首次进场排一次入场编排，之后界面静止，只留环外柔光极慢呼吸；
+ * 刷新走插值，不重播。
  *
  * 样式用内联 style：本插件的浏览器半是独立打包的产物，
  * 不走 harness 的 CSS Modules 管线，内联样式能免掉一整条构建依赖。
@@ -23,21 +27,31 @@ import type { UsageBuckets, UsageProviderTotal, UsageSummary } from '../protocol
 import { UsageRing, RING_KEYS, type RingLabel } from './UsageRing.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
 import {
+  BrandHeader,
+  BottomRule,
+  CommandEntry,
+  Divider,
+  Insight,
+  KpiPair,
+  ProviderList,
+  StatusFooter,
+  UsageBackdrop,
+  ViewTabs,
+  WindowPills,
+} from './UsageChrome.js'
+import { TIMING, dropIn, riseIn } from './usage-motion.js'
+import { DEFAULT_RATES, describeRates, estimateUsd, formatCny, formatUsd, hitRate } from './usage-pricing.js'
+import {
   ACCENT,
-  BUCKET_GLASS,
   EDGE,
-  FAINT,
   FONT_MONO,
-  FONT_SANS,
   MUTED,
   SURFACE,
   TEXT,
   formatCompact,
   formatCount,
   percentOf,
-  rgba,
 } from './usage-theme.js'
-import type { UsageKey } from './locales.js'
 import { clearUsageStats, fetchUsageSummary } from './usage-client.js'
 /** Props 由 slot 绑定与 locale 绑定组成，不要手工窄化。 */
 export type UsageDashboardProps =
@@ -54,69 +68,65 @@ type Status = 'loading' | 'ready' | 'failed'
 interface Surface {
   /** 面板自身的宽度（px）。 */
   width: number
-  /** 是否走 hero 布局。 */
-  hero: boolean
+  /** 是否走双栏的宽版布局。 */
+  wide: boolean
 }
 
 /** 每个时间窗覆盖的日历日数：日均与窗口标签都用它。 */
 const RANGE_DAYS: Record<Range, number> = { today: 1, d7: 7, d30: 30 }
 
 /** 窄栏形态的环尺寸上下限。 */
-const COMPACT_RING_MIN = 200
-const COMPACT_RING_MAX = 330
-
-/** hero 形态的环尺寸。 */
-const HERO_RING = 420
+const COMPACT_RING_MIN = 170
+const COMPACT_RING_MAX = 300
 
 /**
- * 进入 hero 布局的宽度门槛。
+ * 窄栏里环占面板宽度的比例。
  *
- * hero 版是左列表 + 右主环：右列要放下 420 的环加两侧各 150 的图例余量，
- * 左列还得放得下一行读数，1200px 是这套构图不打架的下限。
+ * 宿主右栏永远是全高的，所以窄栏的参照是 v4 的窄长版（360×800）：
+ * 环是主角，但只占三分之二左右——留给下面的双 KPI 与四行遥测。
  */
-const HERO_MIN_WIDTH = 1200
+const COMPACT_RING_RATIO = 0.62
 
-/** 已经在 hero 版时的宽度下限：留一点迟滞，免得宽度在门槛上反复横跳。 */
-const HERO_STAY_WIDTH = 1160
+/** 宽版左列（环 + 双 KPI）的宽度区间。 */
+const WIDE_LEFT_MIN = 300
+const WIDE_LEFT_MAX = 400
 
 /**
- * 状态带：一条发光线加一行等宽微标。
- * @param props - 左中右三段文案。
- * @returns 状态带。
+ * 宽版整体网格的最大宽度。
+ *
+ * 面板被拉到 1200px 以上时，数据列再宽就只是把「名字」和「数字」拉得更开，
+ * 读起来反而更散。超出的部分留白居中，构图不变形。
  */
-function StatusBand({ left, center, right }: { left: string; center: string; right: string }): ReactNode {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div
-        style={{
-          height: 1,
-          background: `linear-gradient(90deg, transparent 0%, ${rgba(ACCENT, 0.3)} 12%, ${rgba(ACCENT, 0.3)} 88%, transparent 100%)`,
-        }}
-      />
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          fontFamily: FONT_MONO,
-          fontSize: 9,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: rgba(ACCENT, 0.55),
-        }}
-      >
-        <span>{left}</span>
-        <span>{center}</span>
-        <span style={{ textAlign: 'right' }}>{right}</span>
-      </div>
-    </div>
-  )
+const WIDE_GRID_MAX = 1120
+
+/** 宽版两列之间的间距。 */
+const WIDE_GAP = 48
+
+/**
+ * 进入宽版布局的宽度门槛。
+ *
+ * 宽版是「左环右数据」的双栏：环要连同外侧百分比标签一起放得下，
+ * 右列还得容下双 KPI 与四行遥测，900px 是这套构图不打架的下限。
+ */
+const WIDE_MIN_WIDTH = 900
+
+/**
+ * 已经在宽版时的宽度下限：留一点迟滞，免得宽度在门槛上反复横跳。
+ */
+const WIDE_STAY_WIDTH = 860
+
+/** 空桶：读不到数据时用它占位，形状不变、只有数字是零。 */
+const EMPTY_BUCKETS: UsageBuckets = {
+  uncachedInputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
 }
 
 /**
- * 把时间窗切成两栏等分。
+ * 把时间戳切成 HH:MM:SS。
  * @param timestamp - 毫秒时间戳。
- * @returns HH:MM:SS。
+ * @returns 时分秒。
  */
 function clockOf(timestamp: number): string {
   const date = new Date(timestamp)
@@ -134,7 +144,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   const [status, setStatus] = useState<Status>('loading')
   const [range, setRange] = useState<Range>('d30')
   const [clearing, setClearing] = useState(false)
-  const [surface, setSurface] = useState<Surface>({ width: 0, hero: false })
+  const [surface, setSurface] = useState<Surface>({ width: 0, wide: false })
   const lifetime = useRef<AbortController | undefined>(undefined)
   const panel = useRef<HTMLElement | null>(null)
 
@@ -144,7 +154,8 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
    * 那个标志只说明「面板盖住了整块视口」：窗口窄的时候右栏会自动全屏，
    * 那时可用宽度反而更小。真正决定构图的是量出来的宽度。
    */
-  const hero = surface.hero
+  const wide = surface.wide
+  const timing = wide ? TIMING.wide : TIMING.compact
 
   useLayoutEffect(() => {
     const node = panel.current
@@ -152,9 +163,9 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     const measure = (): void => {
       const width = node.clientWidth
       setSurface((previous) => {
-        const hero = previous.hero ? width >= HERO_STAY_WIDTH : width >= HERO_MIN_WIDTH
-        if (previous.width === width && previous.hero === hero) return previous
-        return { width, hero }
+        const wide = previous.wide ? width >= WIDE_STAY_WIDTH : width >= WIDE_MIN_WIDTH
+        if (previous.width === width && previous.wide === wide) return previous
+        return { width, wide }
       })
     }
     measure()
@@ -207,10 +218,11 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [summary],
   )
 
-  const total = useMemo<number>(() => {
-    if (buckets === undefined) return 0
-    return RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
-  }, [buckets])
+  const shown = buckets ?? EMPTY_BUCKETS
+  const total = useMemo<number>(
+    () => RING_KEYS.reduce((sum, key) => sum + shown[key], 0),
+    [shown],
+  )
 
   /** 四个桶的全名：遥测列表用这一份，写得完整、读得懂。 */
   const names = useMemo<readonly TelemetryName[]>(
@@ -223,76 +235,58 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [t],
   )
 
-  /** 四个桶的短名：环外图例用这一份，短到能贴住弧段。 */
-  const shortNames = useMemo<readonly TelemetryName[]>(
-    () => [
-      { key: 'uncachedInputTokens', label: t('bucket.uncachedInput.short') },
-      { key: 'outputTokens', label: t('bucket.output.short') },
-      { key: 'cacheReadTokens', label: t('bucket.cacheRead.short') },
-      { key: 'cacheWriteTokens', label: t('bucket.cacheWrite.short') },
-    ],
-    [t],
-  )
-
   const windowLabel = range === 'today' ? t('window.today') : range === 'd7' ? t('window.d7') : t('window.d30')
-  const dailyAverage = total / RANGE_DAYS[range]
-  const uncachedShare = percentOf(buckets?.uncachedInputTokens ?? 0, total)
+  const uncachedShare = percentOf(shown.uncachedInputTokens, total)
   /** 窄栏里的环随面板宽度缩放：宽一点就大一点，但封顶。 */
-  const compactRing = Math.round(Math.max(COMPACT_RING_MIN, Math.min(COMPACT_RING_MAX, surface.width - 190)))
+  const compactRing = Math.round(
+    Math.max(COMPACT_RING_MIN, Math.min(COMPACT_RING_MAX, surface.width * COMPACT_RING_RATIO)),
+  )
+  /** 宽版左列的宽度：环与双 KPI 住在这一列里。 */
+  const wideLeft = Math.round(
+    Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)),
+  )
+  /** 宽版的环跟着左列走：列宽减去两侧留白，就是环的直径。 */
+  const wideRing = Math.round(Math.max(220, Math.min(300, wideLeft - 100)))
+  const ringSize = wide ? wideRing : compactRing
+
+  // 入场编排的挂点：品牌头、视图 Tab、时间窗、双 KPI、洞察、命令入口、底栏。
+  const headerRef = useRef<HTMLDivElement | null>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  const pillsRef = useRef<HTMLDivElement | null>(null)
+  const kpiRef = useRef<HTMLDivElement | null>(null)
+  const insightRef = useRef<HTMLDivElement | null>(null)
+  const entryRef = useRef<HTMLDivElement | null>(null)
+  const footerRef = useRef<HTMLDivElement | null>(null)
+
+  // 入场只播一次：之后的刷新走插值，不重播。
+  const played = useRef(false)
+  useEffect(() => {
+    if (played.current) return
+    played.current = true
+    dropIn(headerRef.current, timing.header)
+    dropIn(tabsRef.current, timing.tabs)
+    dropIn(pillsRef.current, timing.pills)
+    riseIn(kpiRef.current, timing.kpi)
+    riseIn(insightRef.current, timing.insight)
+    riseIn(entryRef.current, timing.entry)
+    riseIn(footerRef.current, timing.footer)
+  }, [timing])
 
   const ghostButton = {
     font: 'inherit',
-    fontSize: 10,
-    letterSpacing: '0.06em',
-    padding: '3px 8px',
-    borderRadius: 6,
+    fontFamily: FONT_MONO,
+    fontSize: 9,
+    letterSpacing: '0.08em',
+    padding: '4px 8px',
+    borderRadius: 5,
     border: `1px solid ${EDGE}`,
     background: 'transparent',
     color: MUTED,
     cursor: 'pointer',
   } as const
 
-  const rangeButton = (active: boolean) => ({
-    font: 'inherit',
-    fontSize: 11,
-    letterSpacing: '0.04em',
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: 'none',
-    cursor: 'pointer',
-    background: active ? rgba(ACCENT, 0.16) : 'transparent',
-    color: active ? ACCENT : MUTED,
-    fontWeight: active ? 600 : 400,
-  })
-
-  const rangeSwitch = (
-    <div
-      style={{
-        display: 'inline-flex',
-        gap: 2,
-        padding: 2,
-        borderRadius: 9,
-        background: 'rgba(255,255,255,0.05)',
-        border: `1px solid ${EDGE}`,
-      }}
-    >
-      {([['today', t('range.today')], ['d7', t('range.d7')], ['d30', t('range.d30')]] as const).map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          data-usage-range={key}
-          aria-pressed={range === key}
-          style={rangeButton(range === key)}
-          onClick={() => setRange(key)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-
   const actions = (
-    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+    <>
       <button type="button" data-usage-refresh="" style={ghostButton} onClick={() => void load()}>
         {t('action.refresh')}
       </button>
@@ -305,108 +299,130 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       >
         {clearing ? t('action.clearing') : t('action.clear')}
       </button>
-    </div>
+    </>
   )
 
   const telemetry = (
     <UsageTelemetry
-      buckets={buckets ?? { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }}
+      buckets={shown}
       names={names}
-      variant={hero ? 'hero' : 'compact'}
+      variant={wide ? 'hero' : 'compact'}
+      timing={{ rows: timing.rows, rowStep: timing.rowStep, bars: timing.bars }}
     />
   )
 
-  const ringLabels: readonly RingLabel[] = shortNames.map((name) => ({
-    key: name.key,
-    text: `${name.label} · ${percentOf(buckets?.[name.key] ?? 0, total)}%`,
+  // 环外标签：v4 只画百分比，不画桶名——名字由下面的四行遥测承担。
+  const ringLabels: readonly RingLabel[] = RING_KEYS.map((key) => ({
+    key,
+    text: `${percentOf(shown[key], total)}%`,
   }))
 
-  const providerBlock = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <h3
-        style={{
-          margin: 0,
-          fontFamily: FONT_MONO,
-          fontSize: 9,
-          fontWeight: 500,
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
-          color: FAINT,
+  const rate = hitRate(shown)
+  const cost = estimateUsd(shown)
+  const kpiPair = (
+    <div ref={kpiRef}>
+      <KpiPair
+        left={{
+          label: t('kpi.hitRate'),
+          value: `${(rate * 100).toFixed(1)}%`,
+          sub: t('kpi.hitSub', { count: formatCount(shown.cacheReadTokens) }),
+          subColor: ACCENT,
         }}
-      >
-        {t('provider.title')}
-      </h3>
-      {providers.length === 0
-        ? <p style={{ margin: 0, fontSize: 12, color: FAINT }}>{t('provider.empty')}</p>
-        : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {providers.map((provider) => (
-              <li
-                key={`${provider.provider}/${provider.model}`}
-                style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: MUTED,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {provider.provider === 'unknown' ? t('provider.unknown') : provider.provider}
-                  {provider.model.length > 0 && ` / ${provider.model}`}
-                </span>
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: TEXT,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {formatCount(RING_KEYS.reduce((sum, key) => sum + provider[key], 0))}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        right={{
+          label: t('kpi.cost'),
+          value: `≈ ${formatUsd(cost)}`,
+          sub: t('kpi.costSub', { window: windowLabel, cny: formatCny(cost) }),
+          title: t('kpi.rates', { rates: describeRates(DEFAULT_RATES) }),
+        }}
+      />
     </div>
   )
 
-  const insight = (
-    <p style={{ margin: 0, fontSize: hero ? 13 : 12, lineHeight: 1.55, color: ACCENT }}>
-      {t('insight.uncached', { pct: `${uncachedShare}%` })}
-    </p>
+  const providerList = (
+    <ProviderList
+      title={t('provider.title')}
+      items={providers.map((provider) => ({
+        key: `${provider.provider}/${provider.model}`,
+        label: provider.provider === 'unknown'
+          ? t('provider.unknown')
+          : `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`,
+        value: formatCount(RING_KEYS.reduce((sum, key) => sum + provider[key], 0)),
+      }))}
+    />
   )
 
-  const footer = (
-    <div
-      style={{
-        fontFamily: FONT_SANS,
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase',
-        color: FAINT,
-      }}
-    >
-      {t('footer.build')}
+  const insight = (
+    <div ref={insightRef}>
+      <Insight>
+        {/* 话跟着数据走：未缓存输入占了大头时，不能还说它「保持低位」。 */}
+        {uncachedShare > 40
+          ? t('insight.uncachedHigh', { pct: `${uncachedShare}%` })
+          : t('insight.uncachedLow', { pct: `${uncachedShare}%` })}
+      </Insight>
     </div>
   )
 
   const ring = (
     <UsageRing
-      buckets={buckets ?? { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }}
-      headline={formatCompact(total)}
+      buckets={shown}
+      total={total}
+      format={formatCompact}
       caption={t('total.label')}
       captionAccent={windowLabel}
-      sub={t('ring.dailyAvg', { value: formatCompact(dailyAverage) })}
-      size={hero ? HERO_RING : compactRing}
-      variant={hero ? 'hero' : 'compact'}
-      labels={hero ? ringLabels : undefined}
+      sub={(counted) => t('ring.dailyAvg', { value: formatCompact(counted / RANGE_DAYS[range]) })}
+      size={ringSize}
+      variant={wide ? 'wide' : 'compact'}
+      labels={ringLabels}
+      timing={{ track: timing.track, arc: timing.arc, arcStep: timing.arcStep, number: timing.number }}
     />
+  )
+
+  const tabs = (
+    <div ref={tabsRef}>
+      <ViewTabs
+        items={[t('view.overview'), t('view.cost'), t('view.top'), t('view.alerts')]}
+        active={0}
+        soonHint={t('view.soon')}
+        onSelect={() => undefined}
+      />
+    </div>
+  )
+
+  const pills = (
+    <div ref={pillsRef}>
+      <WindowPills
+        items={[
+          { value: 'today', label: t('window.today') },
+          { value: 'd7', label: t('window.d7') },
+          { value: 'd30', label: t('window.d30') },
+        ]}
+        value={range}
+        onSelect={(value) => setRange(value as Range)}
+      />
+    </div>
+  )
+
+  const commandEntry = (
+    <div ref={entryRef}>
+      <CommandEntry
+        badge={t('entry.badge')}
+        label={t('entry.commands')}
+        hint={t('entry.hint')}
+        unavailableHint={t('entry.soon')}
+        ready={false}
+      />
+    </div>
+  )
+
+  const footer = (
+    <div ref={footerRef}>
+      <StatusFooter
+        status={`${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')}${
+          summary === undefined ? '' : ` · ${clockOf(summary.generatedAt)}`
+        }`}
+        actions={actions}
+      />
+    </div>
   )
 
   return (
@@ -416,151 +432,125 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       style={{
         position: 'relative',
         overflow: 'hidden',
+        boxSizing: 'border-box',
+        height: '100%',
+        maxHeight: '100%',
         background: SURFACE,
         color: TEXT,
         border: `1px solid ${EDGE}`,
         borderRadius: 14,
-        padding: hero ? '22px 30px 24px' : '16px 18px 18px',
-        fontFamily: FONT_SANS,
+        padding: wide ? '22px 30px 24px' : '16px 18px 18px',
         fontSize: 13,
         lineHeight: 1.5,
-        minHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 18,
+        gap: 14,
       }}
     >
-      {hero && <HeroChrome />}
+      <UsageBackdrop />
 
-      <StatusBand
-        left={t('hud.telemetry')}
-        center={t('hud.locked')}
-        right={t('hud.webLocal')}
-      />
+      {/*
+        内容层自己滚：宿主右栏的 Tab 容器是 overflow:hidden，
+        面板再高就再也够不到底栏了。这里让它成为滚动容器，
+        背景网格留在外层不动。
+      */}
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        <div ref={headerRef}>
+          <BrandHeader
+            title={t('brand.name')}
+            usageLabel={t('brand.usage')}
+            commandsLabel={t('brand.commands')}
+            commandsReady={false}
+            commandsHint={t('brand.commandsSoon')}
+          />
+        </div>
+        <Divider />
 
-      {status === 'loading' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>}
-      {status === 'failed' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            // 窄栏把时间窗推到右侧；宽面板上两端对齐会把两者拉得太散，改成成组靠左。
+            justifyContent: wide ? 'flex-start' : 'space-between',
+            gap: wide ? 28 : 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          {tabs}
+          {pills}
+        </div>
 
-      {status === 'ready' && buckets !== undefined && (
-        <>
-          {hero
+        {status === 'loading' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>}
+        {status === 'failed' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>}
+
+        {status === 'ready' && buckets !== undefined && (
+          wide
             ? (
-              /* 全屏：左栏标题+遥测，右栏主环，和设计稿同一套构图。 */
+              /* 宽版：左环右数据。命令面板那一面还没实现，右列留给用量本身。 */
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) auto',
-                  gap: 40,
-                  alignItems: 'center',
-                  flex: 1,
+                  gridTemplateColumns: `${wideLeft}px minmax(0, 1fr)`,
+                  gap: WIDE_GAP,
+                  alignItems: 'start',
+                  width: '100%',
+                  maxWidth: WIDE_GRID_MAX,
+                  margin: '0 auto',
                 }}
               >
-                {/* 左栏限宽 620：给环外标签留出通道，两边不会挤在一起。 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, maxWidth: 620 }}>
-                  <header style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ fontSize: 72, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 0.94, color: '#7a8497' }}>
-                        USAGE
-                      </span>
-                      <span style={{ fontSize: 72, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 0.94, color: TEXT }}>
-                        DASHBOARD.
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: MUTED }}>{t('panel.subtitle')}</p>
-                  </header>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {rangeSwitch}
-                    {actions}
-                  </div>
-
-                  {telemetry}
-                  {providerBlock}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 24,
+                    alignItems: 'stretch',
+                  }}
+                >
+                  {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 0' }}>{ring}</div>
+                  {kpiPair}
                   {insight}
                 </div>
-                {/* 两侧各留 150：环外标签会溢出环自身的盒子。 */}
-                <div style={{ padding: '0 150px 0 150px' }}>{ring}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
+                  {telemetry}
+                  {providerList}
+                </div>
               </div>
             )
             : (
-              /* 侧栏：环在上、遥测在下，窄栏优先保证读数。 */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {rangeSwitch}
-                  {actions}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>{ring}</div>
+              /* 窄栏：环在上、双 KPI 与四行在下，读数优先。 */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 36px' }}>{ring}</div>
+                <Divider />
+                {kpiPair}
+                <Divider />
                 {telemetry}
+                <Divider />
                 {insight}
-                {providerBlock}
+                {providerList}
               </div>
-            )}
+            )
+        )}
 
-          {footer}
-        </>
-      )}
-
-      <StatusBand
-        left={t('hud.phase', { window: windowLabel })}
-        center={t('hud.buckets', { count: names.length })}
-        right={summary === undefined ? '' : t('hud.sync', { time: clockOf(summary.generatedAt) })}
-      />
+        <div style={{ flex: 1 }} />
+        <Divider />
+        {commandEntry}
+        <Divider />
+        {footer}
+        <BottomRule />
+      </div>
     </section>
-  )
-}
-
-/**
- * hero 形态专属的框件：四角薄角标、极淡透视地面网格、左右分区的发光分隔线。
- * @returns 背景装饰层。
- */
-function HeroChrome(): ReactNode {
-  const corner = (position: 'top' | 'bottom', side: 'left' | 'right') => ({
-    position: 'absolute' as const,
-    [position]: 10,
-    [side]: 10,
-    width: 22,
-    height: 22,
-    borderColor: rgba(ACCENT, 0.45),
-    borderStyle: 'solid' as const,
-    borderWidth: 0,
-    borderTopWidth: position === 'top' ? 2 : 0,
-    borderBottomWidth: position === 'bottom' ? 2 : 0,
-    borderLeftWidth: side === 'left' ? 2 : 0,
-    borderRightWidth: side === 'right' ? 2 : 0,
-    pointerEvents: 'none' as const,
-  })
-
-  return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} aria-hidden="true">
-      <div style={corner('top', 'left')} />
-      <div style={corner('top', 'right')} />
-      <div style={corner('bottom', 'left')} />
-      <div style={corner('bottom', 'right')} />
-      {/* 极淡透视地面网格：只有 3% 灰白，不抢任何数字。 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: -120,
-          width: '220%',
-          height: '52%',
-          transform: 'translateX(-50%) perspective(760px) rotateX(63deg)',
-          transformOrigin: 'bottom center',
-          backgroundImage: `repeating-linear-gradient(to right, rgba(255,255,255,0.03) 0 1px, transparent 1px 120px), repeating-linear-gradient(to bottom, rgba(255,255,255,0.03) 0 1px, transparent 1px 120px)`,
-        }}
-      />
-      {/* 左右分区的发光分隔线。 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '58%',
-          top: '14%',
-          bottom: '14%',
-          width: 1,
-          background: `linear-gradient(180deg, transparent 0%, ${rgba(ACCENT, 0.3)} 18%, ${rgba(ACCENT, 0.3)} 82%, transparent 100%)`,
-          boxShadow: `0 0 12px ${rgba(ACCENT, 0.25)}`,
-        }}
-      />
-    </div>
   )
 }

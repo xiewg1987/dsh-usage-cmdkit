@@ -12,6 +12,26 @@ export const SURFACE = '#07090f'
 /** 面板描边。 */
 export const EDGE = 'rgba(255,255,255,0.07)'
 
+/**
+ * 背景网格细线。
+ *
+ * v4 设计稿的底纹是**平视**网格（40px 细格 + 160px 粗格），
+ * 不是透视地面——平视网格在任何宽高比下都成立，不必为窄栏单独降级。
+ */
+export const GRID = '#131924'
+
+/** 背景网格粗线：每四格一条。 */
+export const GRID_MAJOR = '#19212e'
+
+/** 分隔线：段与段之间那一条极细的横线。 */
+export const HAIR = '#1a2230'
+
+/** 进度条轨道底色。 */
+export const TRACK = '#141a25'
+
+/** 洞察文案的高亮蓝：比强调色更亮一档，专供这一处。 */
+export const INSIGHT = '#9fc2ff'
+
 /** 主文字。 */
 export const TEXT = '#e9edf4'
 
