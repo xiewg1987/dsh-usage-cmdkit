@@ -234,7 +234,13 @@ export function UsageRing3D(props: UsageRingProps): ReactNode {
       >
         <div
           style={{
-            fontSize: Math.max(15, size * v.headline),
+            // 读数要收口：3D 环的「洞」是弧的内沿，不是环心暗盘。
+            // 弧内沿在轨道半径的 0.83 处，投影后洞只有画布的 0.39 倍宽；
+            // 而默认比例（size × 0.13~0.137）下六位数会占到 0.47 倍，
+            // 数字两端直接压到弧上，读不出来。
+            // 0.10 × 画布 ≈ 0.35 倍宽，扣掉字形高度后仍留得住边。
+            // 平面环不用收：它的暗盘外沿离弧还有 0.24 倍画布，数字压出暗盘也碰不到弧。
+            fontSize: Math.max(15, Math.min(size * v.headline, size * 0.1)),
             fontWeight: 700,
             color: TEXT,
             letterSpacing: -size * 0.004,

@@ -13,7 +13,20 @@
  *   数据靠「暗金属件被点亮」——鳍片的顶边发光，数据弧是细的一条实体带。
  * - **大片暗、极少高能**。结构件比数据暗，金属只靠环境贴图拉出一道窄高光。
  * - **发光强度压在 1 附近**。超过 1.5 会被 ACES 推成白，辉光糊成一团。
- * - 辉光形状交给可控的加法壳，bloom 只做微弱加成。
+ * - 辉光形状交给可控的加法壳，不用后期 bloom。
+ *
+ * 为什么没有后期合成器（这条踩过坑，别再走回头路）：
+ *
+ * 用 EffectComposer 时，场景是渲进 render target 的。three 在渲染到
+ * render target 时**禁用材质级 tone mapping**（`WebGLPrograms` 里判
+ * `currentRenderTarget === null`），ACES 改由 OutputPass 对**整帧**施加一次。
+ * 于是材质上的 `toneMapped: false` 完全失效——弧的桶色照样被 ACES 推浅：
+ * `#4c8dff` 过一遍 ACES 变成约 `#659ce2`，蓝弧看着发青、四个桶分不清。
+ *
+ * 直接 `renderer.render()` 之后，tone mapping 回到材质级，
+ * `toneMapped: false` 才真的能让桶色原样输出。
+ * 顺带把 UnrealBloomPass 那一整套（5 级 mip 模糊、十几次全屏绘制）也省了：
+ * 分片更小，帧率更高，而辉光本来就该由加法壳可控地画出来。
  *
  * 角度约定（重要）：共享几何里的角度是「十二点方向起、顺时针铺开」（与 SVG 环一致），
  * 而 three 的 XY 平面是 y 朝上、角度逆时针为正。所以这里要做一次翻转：
@@ -52,14 +65,9 @@ import {
   SRGBColorSpace,
   Texture,
   TorusGeometry,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import type { RingSegment } from './usage-ring-geometry.js'
 
 /**
@@ -119,8 +127,13 @@ const TICK_COUNT = TICK_MAX
 /** 数据轨半径：四色数据弧跑在这条轨上。 */
 const TRACK_RADIUS = 0.86
 
-/** 环心暗盘半径：把洞压干净，DOM 读数才站得住。 */
-const CORE_RADIUS = 0.74
+/**
+ * 环心暗盘半径：把洞压干净，DOM 读数才站得住。
+ *
+ * 必须小于数据轨（0.86）并留出余量：暗盘是方形平面，
+ * 环倾斜之后它的投影会伸到轨道上，贴太近就会把弧盖掉。
+ */
+const CORE_RADIUS = 0.62
 
 /** 环外标签的投影半径：落在最高的鳍片之外。 */
 const LABEL_RADIUS = 1.3
@@ -150,6 +163,29 @@ const ARC_GAP = 0.045
 /** 读取头的转速（弧度/秒）。 */
 const HEAD_SPEED = 0.42
 
+/**
+ * 环上各条半径（世界单位）。
+ *
+ * 导出给设计稿渲染脚本用：`scripts/render-design-ring.mjs` 要按真实半径
+ * 摆标签、量投影范围。抄一遍常量就会和实现漂移，导出才是一份事实。
+ */
+export const ORBIT_RADII = {
+  /** 底轨半径。 */
+  rail: RAIL_RADIUS,
+  /** 刻度环半径。 */
+  tick: TICK_RADIUS,
+  /** 数据轨半径。 */
+  track: TRACK_RADIUS,
+  /** 环心暗盘半径。 */
+  core: CORE_RADIUS,
+  /** 环外标签的投影半径。 */
+  label: LABEL_RADIUS,
+  /** 鳍片根部半径。 */
+  finBase: FIN_BASE,
+  /** 鳍片最大高度。 */
+  finHeight: FIN_HEIGHT_BASE + FIN_HEIGHT_SCALE,
+} as const
+
 /** 帧回调带出去的状态。 */
 export interface FrameState {
   /** 当前自转角（弧度）：标签要跟着弧走，用它算位置。 */
@@ -166,6 +202,13 @@ export interface OrbitMatrix {
   projectLabel(angle: number): { x: number; y: number }
   /** 空闲自转开关：面板不可见时应关掉。 */
   setIdleSpin(enabled: boolean): void
+  /**
+   * 固定读取头的位置（局部角，弧度）；传 null 恢复自转。
+   *
+   * 设计稿要**可复现的构图**，所以读取头得能钉死——
+   * 它默认按自身起点计时自转，渲染时机一变位置就变。
+   */
+  setHeadAngle(angle: number | null): void
   /** 订阅每帧回调。 */
   onFrame(listener: ((state: FrameState) => void) | null): void
   /** 销毁：停帧、释放几何与渲染器。 */
@@ -182,23 +225,28 @@ interface ArcTube {
 
 /** 管状弧的材质选项。 */
 interface ArcStyle {
-  /** 用不受光的基础材质（加法辉光壳）。 */
-  basic?: boolean
   /** 压扁系数（z 方向），1 = 不压。 */
   flat?: number
-  /** 不透明度。 */
+  /** 径向偏移：把管子的中心线整体往外推。辉光壳用它躲开实体弧。 */
+  offset?: number
+  /** 不透明度：只对加法辉光壳有意义，实体弧始终不透明。 */
   opacity?: number
   /** 沿弧的分段数。 */
   tubular?: number
   /** 截面分段数。 */
   radial?: number
+  /** 沿截面做亮度衰减：从内缘往外淡出，辉光才有「溢出来」的样子。 */
+  fade?: boolean
 }
 
 /**
  * 造一段管状弧。
  *
- * 截面是圆管，法线可以直接算出来（径向 × cos + 轴向 × sin），
- * 不用每帧跑 computeVertexNormals。
+ * 截面是椭圆管（z 方向被 `flat` 压扁），法线可以直接算出来
+ * （径向 × cos + 轴向 × sin），不用每帧跑 computeVertexNormals。
+ *
+ * 两端有端盖：管子若是开口的，弧与弧之间的缺口会直接漏出背景，
+ * 看着像数据被切了个口子。
  * @param radius - 弧所在的半径。
  * @param tube - 管半径。
  * @param color - 颜色。
@@ -214,9 +262,15 @@ function createArcTube(
   const radial = style.radial ?? 8
   const tubular = style.tubular ?? 64
   const rowSize = radial + 1
-  const vertexCount = (tubular + 1) * rowSize
+  const ringCount = (tubular + 1) * rowSize
+  // 额外两个顶点：两端的端盖中心。
+  const capStart = ringCount
+  const capEnd = ringCount + 1
+  const vertexCount = ringCount + 2
   const positions = new Float32Array(vertexCount * 3)
   const normals = new Float32Array(vertexCount * 3)
+  // 截面坐标：0 = 内缘，1 = 外缘。辉光壳靠它做径向衰减。
+  const edges = new Float32Array(vertexCount)
   const indices: number[] = []
   for (let i = 0; i < tubular; i += 1) {
     for (let j = 0; j < radial; j += 1) {
@@ -225,44 +279,42 @@ function createArcTube(
       indices.push(a, b, a + 1, b, b + 1, a + 1)
     }
   }
+  // 端盖：起止两个截面各补一个扇面。
+  for (let j = 0; j < radial; j += 1) {
+    indices.push(capStart, j + 1, j)
+    const base = tubular * rowSize
+    indices.push(capEnd, base + j, base + j + 1)
+  }
 
   const geometry = new BufferGeometry()
   const position = new BufferAttribute(positions, 3)
   const normal = new BufferAttribute(normals, 3)
   geometry.setAttribute('position', position)
   geometry.setAttribute('normal', normal)
+  geometry.setAttribute('aEdge', new BufferAttribute(edges, 1))
   geometry.setIndex(indices)
 
-  const mesh = style.basic === true
-    ? new Mesh(
-        geometry,
-        new MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: style.opacity ?? 0.16,
-          blending: AdditiveBlending,
-          depthWrite: false,
-        }),
-      )
+  const mesh = style.fade === true
+    ? new Mesh(geometry, createFadeMaterial(color, style.opacity ?? 0.16))
     : new Mesh(
         geometry,
-        new MeshStandardMaterial({
+        // 弧用**不受光**的基础材质。
+        //
+        // 走 PBR 的话，细管朝径向、方向光基本照不到，
+        // 弧只能靠自发光撑着——而自发光一高，ACES 就把桶色推成白
+        //（蓝变青白、绿变荧光绿），四个桶分不清。
+        //
+        // 不受光就没有这个问题：桶色原样输出，一眼就对得上。
+        // 「被点亮」的质感交给外面的辉光壳，两边各管一件事。
+        new MeshBasicMaterial({
           color,
-          emissive: color,
-          emissiveIntensity: 1.5,
-          metalness: 0.5,
-          roughness: 0.3,
-          envMapIntensity: 1.1,
-          transparent: true,
-          opacity: style.opacity ?? 1,
+          toneMapped: false,
+          // 管子是空心的圆管，正面背面都要画。
           side: DoubleSide,
-          // 关键：three 对「透明 + 双面」的物体会先画背面再画正面，
-          // 每遍还置一次 needsUpdate —— 也就是每帧重编译一次着色器。
-          // 管子很细，单遍就够了。
-          forceSinglePass: true,
         }),
       )
   if (style.flat !== undefined) mesh.scale.z = style.flat
+  const offset = style.offset ?? 0
 
   const update = (start: number, sweep: number): void => {
     for (let i = 0; i <= tubular; i += 1) {
@@ -273,22 +325,71 @@ function createArcTube(
         const phi = (j / radial) * Math.PI * 2
         const cp = Math.cos(phi)
         const sp = Math.sin(phi)
-        const offset = (i * rowSize + j) * 3
-        positions[offset] = cos * (radius + tube * cp)
-        positions[offset + 1] = sin * (radius + tube * cp)
-        positions[offset + 2] = tube * sp
-        normals[offset] = cos * cp
-        normals[offset + 1] = sin * cp
-        normals[offset + 2] = sp
+        const offsetIndex = (i * rowSize + j) * 3
+        positions[offsetIndex] = cos * (radius + offset + tube * cp)
+        positions[offsetIndex + 1] = sin * (radius + offset + tube * cp)
+        positions[offsetIndex + 2] = tube * sp
+        normals[offsetIndex] = cos * cp
+        normals[offsetIndex + 1] = sin * cp
+        normals[offsetIndex + 2] = sp
+        edges[i * rowSize + j] = (cp + 1) / 2
       }
     }
+    // 端盖中心：落在中心线上，z 为 0。
+    positions[capStart * 3] = Math.cos(start) * (radius + offset)
+    positions[capStart * 3 + 1] = Math.sin(start) * (radius + offset)
+    positions[capStart * 3 + 2] = 0
+    positions[capEnd * 3] = Math.cos(start + sweep) * (radius + offset)
+    positions[capEnd * 3 + 1] = Math.sin(start + sweep) * (radius + offset)
+    positions[capEnd * 3 + 2] = 0
     position.needsUpdate = true
     normal.needsUpdate = true
+    geometry.attributes.aEdge.needsUpdate = true
     geometry.computeBoundingSphere()
   }
   update(0, 0.01)
 
   return { mesh, update }
+}
+
+/**
+ * 辉光壳的材质：沿截面从内缘往外淡出。
+ *
+ * 壳是一整圈加法混合的带子。如果亮度是均匀的，它就是一条**实心浅色带**，
+ * 不是辉光——尤其在透明底的设计稿上，白底一衬更像一条塑料条。
+ *
+ * 所以按截面坐标做衰减：贴着实体弧那一侧最亮，往外淡到 0。
+ * @param color - 桶色。
+ * @param opacity - 峰值不透明度。
+ * @returns 材质。
+ */
+function createFadeMaterial(color: Color, opacity: number): ShaderMaterial {
+  return new ShaderMaterial({
+    uniforms: {
+      uColor: { value: color },
+      uOpacity: { value: opacity },
+    },
+    vertexShader: /* glsl */ `
+      attribute float aEdge;
+      varying float vEdge;
+      void main() {
+        vEdge = aEdge;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying float vEdge;
+      void main() {
+        float a = uOpacity * pow(max(0.0, 1.0 - vEdge), 1.8);
+        gl_FragColor = vec4(uColor, a);
+      }
+    `,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  })
 }
 
 /**
@@ -473,28 +574,97 @@ function createTicks(options: {
 
 /**
  * 造环心的暗盘：把洞压干净，DOM 读数才站得住。
+ *
+ * 这个暗盘**必须小**。它是一块方形平面，环倾斜之后它在屏幕上的投影
+ * 是个被拉长的椭圆——近端边缘会伸到数据轨的投影位置上。
+ * 半径给到 0.74（正好是轨道内侧）时，暗盘会把整圈数据弧盖住，
+ * 画面上就只剩鳍片和刻度，数据等于消失了。
+ *
+ * 所以压到 0.62：给轨道留出足够的安全距离，暗盘只负责「洞是暗的」。
  * @param radius - 暗盘半径。
  * @returns 暗盘网格。
  */
 function createCoreDisc(radius: number): Mesh {
-  const size = 256
+  const size = 512
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
   if (ctx !== null) {
     const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-    gradient.addColorStop(0, 'rgba(5,7,11,0.99)')
-    gradient.addColorStop(0.62, 'rgba(5,7,11,0.95)')
+    // 中间一大片**不透明**，只在最外圈淡出。
+    //
+    // 整张盘都做半透明渐变的话，截图时 Chrome 会给 alpha 通道加抖动，
+    // 盘面上就出现一层可见的网点纹。改成「实心 + 边缘过渡」，
+    // 抖动只落在最外面那一圈。
+    gradient.addColorStop(0, 'rgba(5,7,11,1)')
+    gradient.addColorStop(0.78, 'rgba(5,7,11,1)')
+    gradient.addColorStop(0.9, 'rgba(5,7,11,0.72)')
     gradient.addColorStop(1, 'rgba(5,7,11,0)')
+    ctx.fillStyle = gradient
+    // 只填**圆**。
+    //
+    // 之前填的是整个正方形，而平面是 radius*2 的正方形：
+    // 正方形的四个角伸到 radius*1.414 处，比数据轨（0.86）还远，
+    // 于是暗盘的四角把远端的弧切掉了一截——小桶的弧整段消失。
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  const disc = new Mesh(
+    new PlaneGeometry(radius * 2, radius * 2),
+    // 半透明 + 不写深度：暗盘只做「压暗」，不参与深度竞争，
+    // 也不会挡住任何数据。
+    new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+  )
+  // 透明队列内先画：暗盘是底，数据轨压在它上面。
+  disc.renderOrder = -1
+  return disc
+}
+
+/**
+ * 造一片软边光晕：径向渐变的方片，加法混合。
+ *
+ * 读取头是环上唯一的亮点。用后期 bloom 去照亮它，等于为了一个点
+ * 跑一整套全屏泛光；自己画一片软斑更省，也更好控。
+ * @param size - 贴图边长（px）。
+ * @param color - 光晕颜色（0xRRGGBB）。
+ * @param opacity - 不透明度。
+ * @returns 光晕网格。
+ */
+function createHaloSprite(size: number, color: number, opacity: number): Mesh {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (ctx !== null) {
+    const r = (color >> 16) & 0xff
+    const g = (color >> 8) & 0xff
+    const b = color & 0xff
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    gradient.addColorStop(0, `rgba(${r},${g},${b},1)`)
+    gradient.addColorStop(0.28, `rgba(${r},${g},${b},0.42)`)
+    gradient.addColorStop(0.62, `rgba(${r},${g},${b},0.1)`)
+    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`)
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, size, size)
   }
   const texture = new CanvasTexture(canvas)
-  return new Mesh(
-    new PlaneGeometry(radius * 2, radius * 2),
-    new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+  texture.colorSpace = SRGBColorSpace
+  const sprite = new Mesh(
+    new PlaneGeometry(1, 1),
+    new MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    }),
   )
+  return sprite
 }
 
 /**
@@ -603,11 +773,11 @@ export function createOrbitMatrix(options: {
   under.position.set(0.4, -3.2, 1.2)
   scene.add(under)
 
-  // 辉光：只做微弱加成。强度高了整圈糊成白雾，比没有还糟。
-  const composer = new EffectComposer(renderer)
-  composer.addPass(new RenderPass(scene, camera))
-  composer.addPass(new UnrealBloomPass(new Vector2(size, size), 0.34, 0.5, 0.8))
-  composer.addPass(new OutputPass())
+  // 辉光：不用后期 bloom，辉光由每一段弧外面那圈**加法壳**画出来。
+  //
+  // 形状因此是可控的：壳多大、亮多少，写死在几何里，不会像 bloom 那样
+  // 把整条弧一起吸进去、桶色被推成白。
+  // 读取头和鳍片顶边这类真高光，各自带一小片加法晕，不需要全屏泛光。
 
   // 环本体：整体倾斜，空闲时绕自身轴慢转。
   const root = new Group()
@@ -662,8 +832,10 @@ export function createOrbitMatrix(options: {
 
   /* ------------------------------------------------------------ 数据轨 */
 
+  // 凹槽：暗金属的一圈轨，比数据弧宽，两侧留出暗边，
+  // 读起来才像「数据嵌在槽里」，而不是一根浮着的彩色管子。
   const trackBand = new Mesh(
-    new TorusGeometry(TRACK_RADIUS, 0.032, 12, 190),
+    new TorusGeometry(TRACK_RADIUS, 0.042, 12, 190),
     createHousingMaterial(0x0b1119, 0.42),
   )
   trackBand.scale.z = 0.42
@@ -673,36 +845,71 @@ export function createOrbitMatrix(options: {
   const glows: ArcTube[] = []
   for (const hex of colors) {
     const color = new Color(hex)
-    const arc = createArcTube(TRACK_RADIUS, 0.03, color)
-    arc.mesh.position.z = 0.018
+    // 数据弧是**扁带**，不是圆管。
+    //
+    // 圆管的截面是圆的，z 方向也占了管半径那么宽。环一倾斜，
+    // 这段 z 厚度会沿着投影的短轴方向糊到径向宽度上去：
+    // 于是环的上下两端看着粗、左右两侧看着细 —— 同一根弧粗细差两成。
+    // 把 z 压扁成 0.42，径向宽度就只由环平面决定，粗细一致。
+    const arc = createArcTube(TRACK_RADIUS, 0.03, color, { flat: 0.42 })
+    // 贴着凹槽顶面：下沿刚好落在槽上，上沿露出一点点。
+    arc.mesh.position.z = 0.03
     root.add(arc.mesh)
     arcs.push(arc)
-    // 加法辉光壳：辉光的形状由它可控，bloom 只负责最亮那一点往外推。
-    const glow = createArcTube(TRACK_RADIUS, 0.072, color, { basic: true, flat: 0.42, opacity: 0.22 })
-    glow.mesh.position.z = 0.018
+    // 加法辉光壳：辉光的形状由它可控，不用后期 bloom。
+    //
+    // 壳必须**完全落在弧的外侧，一像素都不许重叠**：
+    // 弧占 0.83–0.89（中心 0.86，管半径 0.03），
+    // 壳的 inner edge 必须在 0.89 之外，否则加法混合会把弧的颜色洗掉
+    // （蓝弧被青色壳盖住 → 变成青白，四个桶分不清）。
+    // 壳心 0.939、管半径 0.044 → 壳占 0.895–0.983，内缘刚好贴住弧的外缘。
+    // 亮度沿截面往外淡出，所以它是辉光，不是一条实心浅色带。
+    const glow = createArcTube(TRACK_RADIUS, 0.044, color, {
+      fade: true,
+      flat: 0.42,
+      opacity: 0.5,
+      offset: 0.079,
+    })
+    glow.mesh.position.z = 0.03
+    // 辉光是加法混合，要压在实体弧**上面**才像「外溢的光」。
+    glow.mesh.renderOrder = 2
     root.add(glow.mesh)
     glows.push(glow)
   }
 
   /* ------------------------------------------------------------ 读取头 */
 
+  // 读取头是环上唯一的「白点」，但它**不能是纯白**。
+  // 纯白（0xe8f2ff）的亮度接近 1.0，远超 bloom 的阈值 0.8，
+  // 会被 bloom 当成高光源反复扩散 —— 画面上就是右下角炸出一大团白斑。
+  // 改成偏蓝的冷白并压低亮度：它仍然是最亮的一点，但只在原地发亮。
   const head = new Group()
   head.add(new Mesh(
-    new TorusGeometry(TRACK_RADIUS, 0.03, 8, 18, 0.2),
-    new MeshBasicMaterial({ color: 0xe8f2ff }),
+    new TorusGeometry(TRACK_RADIUS, 0.03, 8, 18, 0.16),
+    new MeshBasicMaterial({ color: 0x6f9fd8, toneMapped: false }),
   ))
+  // 读取头自带一片软斑：后期 bloom 拆掉之后，它仍是环上唯一的高能点。
+  //
+  // 斑不能大。它压在数据轨上，摊开就等于把一段数据糊掉——
+  // 实测 0.26 世界单位（≈17°）的光斑能吞掉蓝弧尾部一大截。
+  const headHalo = createHaloSprite(128, 0x6f9fd8, 0.9)
+  headHalo.position.set(TRACK_RADIUS, 0, 0.012)
+  headHalo.scale.setScalar(0.12)
+  headHalo.renderOrder = 3
+  head.add(headHalo)
   for (let i = 1; i <= 4; i += 1) {
     const trail = new Mesh(
-      new TorusGeometry(TRACK_RADIUS, 0.024, 8, 16, 0.13),
+      new TorusGeometry(TRACK_RADIUS, 0.024, 8, 16, 0.1),
       new MeshBasicMaterial({
-        color: 0x9dc4ff,
+        color: 0x3f6ea8,
         transparent: true,
         opacity: 0.3 / i,
         blending: AdditiveBlending,
         depthWrite: false,
+        toneMapped: false,
       }),
     )
-    trail.rotation.z = -i * 0.13
+    trail.rotation.z = -i * 0.1
     head.add(trail)
   }
   head.position.z = 0.03
@@ -718,6 +925,10 @@ export function createOrbitMatrix(options: {
   let target: number[] = []
   /** 插值的起始时刻；0 表示不在插值。 */
   let interpStart = 0
+  /** 入场是否已经落过终态。 */
+  let settled = false
+  /** 读取头的固定角度；null 表示让它自转。 */
+  let headAngle: number | null = null
 
   const flatten = (segments: readonly RingSegment[]): number[] =>
     segments.flatMap((segment) => [segment.from, segment.to])
@@ -867,11 +1078,28 @@ export function createOrbitMatrix(options: {
       }
       applySegments(grown)
       applyFins(grown, growth)
+    } else if (!settled) {
+      // 入场收尾：把弧长与鳍片**定死**到目标值。
+      //
+      // 这一步不能省，也不能指望「入场最后一帧刚好落在 680ms 之前」。
+      // applySegments 只在入场期间被调用；帧率一掉（软件渲染、后台标签页、
+      // 机器卡顿、大图慢一点），入场的最后一帧可能停在 200ms，
+      // 于是每段弧都只长到一半——数据看着像被截短了。
+      //
+      // 所以入场结束后必须显式落一次终态，且只落一次。
+      growth.fill(1)
+      applySegments(target)
+      applyFins(target, growth)
+      settled = true
     }
 
-    head.rotation.z = -(stamp / 1000) * HEAD_SPEED
+    // 读取头从环自己的起点开始走。
+    //
+    // 早先这里用的是 rAF 的页面时间戳，那意味着「环刚创建时读取头在哪儿」
+    // 取决于页面已经开了多久——面板重开一次，它就换了个位置。
+    head.rotation.z = headAngle ?? -(((stamp - startedAt) / 1000) * HEAD_SPEED)
 
-    composer.render()
+    renderer.render(scene, camera)
     listener?.({ spin })
   }
 
@@ -904,12 +1132,13 @@ export function createOrbitMatrix(options: {
       }
       target = next
       interpStart = performance.now()
+      // 新目标要重新落一次终态。
+      settled = false
     },
     resize(next: number): void {
       if (next === size) return
       size = next
       renderer.setSize(size, size, false)
-      composer.setSize(size, size)
       camera.aspect = 1
       camera.updateProjectionMatrix()
       // 画布变大变小，细节档位跟着换：小环上鳍片不能那么密。
@@ -943,6 +1172,9 @@ export function createOrbitMatrix(options: {
     setIdleSpin(enabled: boolean): void {
       idleSpin = enabled
     },
+    setHeadAngle(angle: number | null): void {
+      headAngle = angle
+    },
     onFrame(next: ((state: FrameState) => void) | null): void {
       listener = next
     },
@@ -959,7 +1191,6 @@ export function createOrbitMatrix(options: {
           else material.dispose()
         }
       })
-      composer.dispose()
       renderer.dispose()
     },
   }
