@@ -1,0 +1,9 @@
+# pnpm 11 的包级设置都放在这里（package.json 的 `pnpm` 字段不再被读取）。
+#
+# minimumReleaseAge：只解析发布满 24 小时的版本，避免刚发布的包引入供应链风险。
+minimumReleaseAge: 1440
+
+# esbuild 的 postinstall 负责落地平台二进制（@esbuild/win32-x64 等），
+# 不放行就会缺二进制、构建直接失败。
+onlyBuiltDependencies:
+  - esbuild

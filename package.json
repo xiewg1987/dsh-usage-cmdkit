@@ -1,23 +1,62 @@
 {
   "name": "dsh-usage-cmdkit",
   "version": "0.1.0",
-  "private": true,
+  "description": "DSH Web 本地插件：右侧栏用量遥测（Usage）+ 全局命令面板（Commands，⌘K / Ctrl+K）。数据与配置全部留在本机。",
+  "license": "MIT",
+  "author": {
+    "name": "xiewg1987",
+    "url": "https://github.com/xiewg1987"
+  },
   "type": "module",
-  "description": "DSH plugin: local token usage dashboard (Host hook + Web Client). See docs/README.md.",
-  "main": "./src/index.ts",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./lib/client.js"
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "src",
     "lib",
+    "src",
     "scripts",
     "docs",
+    "!docs/hero",
     "cordis.patch.yml",
     "patch.dev.yml",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiewg1987/dsh-usage-cmdkit.git"
+  },
+  "homepage": "https://github.com/xiewg1987/dsh-usage-cmdkit#readme",
+  "bugs": {
+    "url": "https://github.com/xiewg1987/dsh-usage-cmdkit/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "usage",
+    "token",
+    "telemetry",
+    "web",
+    "sidebar",
+    "command-palette"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -33,27 +72,33 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:client": "node scripts/build-client.mjs"
+    "build": "pnpm run build:host && pnpm run build:client",
+    "build:host": "tsc -p tsconfig.build.json",
+    "build:client": "node scripts/build-client.mjs",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-token-meter": "0.2.1-alpha.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-client-connection": "*"
+    "@deepseek-ai/cordis": "^4.0.5-alpha.1",
+    "@deepseek-ai/dsh-client-connection": "^0.2.1-alpha.1",
+    "@deepseek-ai/dsh-session": "^0.2.1-alpha.1"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "link:../deepseek-harness/vendor/cordis",
-    "@deepseek-ai/cordis-plugin-loader": "link:../deepseek-harness/vendor/loader",
-    "@deepseek-ai/dsh-client-connection": "link:../deepseek-harness/packages/client/connection",
-    "@deepseek-ai/dsh-client-locale": "link:../deepseek-harness/packages/client/locale",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../deepseek-harness/packages/client/ui-plugin-manager",
-    "@deepseek-ai/dsh-client-ui-renderer": "link:../deepseek-harness/packages/client/ui-renderer",
-    "@deepseek-ai/dsh-client-ui-sidebar-right": "link:../deepseek-harness/packages/client/ui-sidebar-right",
-    "@deepseek-ai/dsh-client-ui-slots": "link:../deepseek-harness/packages/client/ui-slots",
-    "@deepseek-ai/dsh-session": "link:../deepseek-harness/packages/core/session",
-    "@deepseek-ai/dsh-token-meter": "link:../deepseek-harness/packages/llm/token-meter",
-    "@deepseek-ai/schemastery": "link:../deepseek-harness/vendor/schemastery",
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.6-alpha.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-session": "0.2.1-alpha.1",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1",
     "@types/node": "^26.6.5",
-    "@types/react": "~18.3.1",
-    "esbuild": "link:../deepseek-harness/packages/boot/hmr/node_modules/esbuild",
+    "@types/react": "~18.3.31",
+    "esbuild": "0.28.1",
     "react": "^18.2.0",
     "typescript": "~5.9.2"
   }
