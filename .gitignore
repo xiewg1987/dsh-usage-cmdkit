@@ -7,3 +7,7 @@ data/**
 !data/.gitkeep
 .dsh-web*.log
 .dsh-web*.log.err
+
+# design/ 下的下划线目录是本地工作区：旧版素材归档与生成脚本，不进版本库。
+design/_archive/
+design/_v4_src/
