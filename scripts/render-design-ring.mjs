@@ -25,7 +25,7 @@
  */
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -821,4 +821,13 @@ try {
 } finally {
   client.close()
   chrome.kill()
+  // Chrome 的 user-data-dir 二十多兆，跑一次漏一次——等它退出，把整个临时目录收掉。
+  await Promise.race([
+    new Promise((resolve) => { chrome.once('exit', resolve) }),
+    sleep(3000),
+  ])
+  await rm(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    .catch((error) => {
+      console.warn('[render-design-ring] 临时目录没清掉，可手动删：' + workDir, error.message)
+    })
 }
