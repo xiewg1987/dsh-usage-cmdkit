@@ -77,22 +77,23 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 
 ## 截图
 
-### 真实运行效果
+### v6 · 两套构图
 
-下面是**真实 DSH Web 宿主里跑出来的**面板（本地真实用量数据，主环为 3D 等高线层环）：
+面板有**两套构图**：窄栏（不到 900px）走**竖屏**那一版；
+宽面板（≥900px，右栏切「全屏」时）走 **3D 轨道矩阵**双栏。
+判据是面板**实测宽度**，不是 `sidebar.fullscreen` 标志——
+窗口窄时右栏会自动全屏，那时可用宽度反而更小。
 
-![DSH Web 宿主里的用量面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-host.png)
-
-| 宽面板（3D 轨道矩阵） | 窄栏（金融竖屏） |
+| 宽面板（3D 轨道矩阵，1280×720） | 窄栏（竖屏，360×800） |
 |---|---|
-| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-wide.png) | ![窄栏堆叠](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-narrow.png) |
+| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) |
 
-> 面板有**两套构图**：窄栏（不到 900px）走**金融竖屏**那一版；
-> 宽面板（≥900px，右栏切「全屏」时）走 **3D 轨道矩阵**双栏。
-> 判据是面板**实测宽度**，不是 `sidebar.fullscreen` 标志——
-> 窗口窄时右栏会自动全屏，那时可用宽度反而更小。
+> 这两张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
+> `src/client/UsageWide.tsx` / `src/client/UsageCompact.tsx` 后用 Chrome 截的），
+> 不是另画的静态稿。逐块对照表、视觉规矩与**实现偏差**见
+> [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
 
-### v5 · 3D 轨道矩阵设计稿
+### 3D 轨道矩阵设计稿
 
 主环换成 3D 轨道矩阵之后，设计稿整页重画了。下面这张是**真实模块渲染**出来的环
 （`scripts/render-design-ring.mjs` 直接 import `src/client/usage-3d.ts`）：
@@ -104,7 +105,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 是从这份 JSON 换算出来的，不是手摆的。渲染脚本自己会**量一遍**（逐像素反解回
 环平面，逐桶量覆盖角 / 屏幕宽度 / 实测色），对不上就说明实现漂了。
 
-### v6 · 竖屏重做（360×800）
+### v6 · 窄栏重做（360×800）
 
 窄栏（不到 900px 的右栏）从 v5.1 的「金融竖屏」再改一版，按
 [design/v6-visual-direction.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-visual-direction.md)
@@ -114,10 +115,19 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 
 ![竖屏 360×800](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png)
 
-> 这张图是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
-> `src/client/UsageCompact.tsx` 后用 Chrome 截的），不是另画的静态稿。
-> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-vertical-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-vertical-preview.md)。
-> 宽面板（≥900px）仍是 3D 轨道矩阵双栏。
+> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
+
+### v6 · 宽栏重做（1280×720）
+
+宽栏（≥900px）**保留 3D 轨道矩阵**，但它旁边的卡片与标签换成了竖屏那一套语言：
+分段控件、描边药丸、两枚横排指标块、带行内微折线的分类列表、三层洞察卡、
+绿点底栏——满屏网格与发光规则线删干净。
+
+![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
+
+> 宽版是**独立组件**（`src/client/UsageWide.tsx`），不是把竖屏拉宽：
+> 3D 环的大小是**量出来的**（面板比一屏高多少就把环压小多少），
+> 因为宿主右栏的高度随窗口变，固定尺寸定不了这件事。
 
 **趋势是画出来的，不是算出来凑的**：折线与涨跌签都来自宿主已有的日 rollup
 （`UsageSummary.daily`，30 日零填充、旧→新）。涨跌签比的是
@@ -220,16 +230,18 @@ src/
   protocol.ts        Host / Client 共享的常量与类型（只有常量与类型）
   client/            浏览器半（右栏的一个 Tab）
     index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND
-    UsageDashboard.tsx / UsageRing.tsx / UsageTelemetry.tsx / UsageTitle.tsx
+    UsageDashboard.tsx  调度层：量面板宽度、选布局、传参
+    UsageWide.tsx    宽栏（≥900px）那一版：3D 轨道矩阵 + 两列卡片
     UsageCompact.tsx 窄栏（<900px）那一版：v6 竖屏构图
-    UsageChrome.tsx  外框件：底纹、品牌头、视图 Tab、时间窗、指标、底栏
+    UsageChrome.tsx  外框件：品牌头、分段控件、时间窗、洞察卡、底栏
     UsageMeters.tsx  读数件：折线 / 小表盘 / 涨跌签 / 指标块 / 分段控件
     usage-icons.tsx  Lucide 图标（ISC，路径原样搬入，不加 npm 依赖）
     UsageRing3D.tsx  3D 环宿主：canvas + DOM 读数覆盖层 + 降级到 SVG 环
     usage-3d.ts      three.js 场景：鳍片环、底轨、刻度、数据轨、读取头
     usage-ring-geometry.ts  2D / 3D 共用的分段与标签规则
+    usage-buttons.ts 底栏 ghost 按钮样式（预览与实现共用一份）
     usage-motion.ts  入场编排的时间表与 Web Animations 原语
-    usage-metrics.ts 命中率等比率算式
+    usage-metrics.ts 比率算式、日序列折线、窗口涨跌
     usage-client.ts  取数与窗口状态
     usage-state.ts   共享状态（用量数据 / 时间窗 / 清空状态）
     usage-theme.ts   视觉常量

@@ -6,10 +6,11 @@
 > 整理时间：2026-10-21 · 参考采集：Pinterest（内置浏览器，公开搜索页）
 > Figma 对应页：`v6 · 视觉方向与参考`（参考图已经铺在那个 Section 里）
 >
-> **状态（2026-10-21 晚）**：本方案已实现。竖屏 360×800 的成图是
-> `design/dsh-cmdkit-v6-360x800.png`，逐块对照表与**实现偏差**见
-> [v6-vertical-preview.md](v6-vertical-preview.md)；Figma 帧在页
-> `v6 · 视觉方向与参考` 的 Section `v6 · 竖屏 360×800（实现对照）`，
+> **状态（2026-10-21 晚）**：本方案已实现，**竖屏与宽版都做了**。
+> 成图是 `design/dsh-cmdkit-v6-360x800.png` 与 `design/dsh-cmdkit-v6-1280x720.png`，
+> 逐块对照表与**实现偏差**见 [v6-preview.md](v6-preview.md)；
+> Figma 帧在页 `v6 · 视觉方向与参考` 的两个 Section
+> （`v6 · 竖屏 360×800（实现对照）` / `v6 · 宽版 1280×720（实现对照）`），
 > 坐标与矢量**由实现渲染导出**，不是手摆的。
 
 ---
@@ -138,7 +139,7 @@
 
 ## 5. v5.1 现在为什么还是不好看
 
-对着上面的参考逐条比，当前这版（`design/dsh-cmdkit-v5-360x800.png`）的问题：
+对着上面的参考逐条比，v5.1 那版（金融竖屏）的问题：
 
 1. **一枚指标卡占满整行还 95px 高** —— 一个数字浮在中间，空白比信息多。
    参考里这一层永远是「两枚 stat」或「stat + delta」。
@@ -174,8 +175,13 @@
 3. 再建上表 9 个组件（都做成真组件，不是散图层）。
 4. 按第 4 节骨架拼一版 360×800。
 5. 旁边再出**宽版 1280×720** 一版（宽版仍是 3D 轨道矩阵，但卡片/标签语言要和竖屏统一）。
+   > **已完成**：宽版成图 `design/dsh-cmdkit-v6-1280x720.png`，
+   > Figma 帧 `v6 · 宽版 1280×720（实现对照）`。
+   > 3D 轨道矩阵留着，卡片与标签换成了竖屏那一套——
+   > 分段控件、描边药丸、两枚 StatTile、带微折线的分类列表、三层洞察卡、绿点底栏，
+   > 满屏网格与发光规则线删干净。实现是独立组件 `src/client/UsageWide.tsx`。
 6. **验收**：出图后必须用真实组件渲染一张对照图，逐块比。
-   规矩见 `design/v6-vertical-preview.md`「这张图是真实组件渲染的」——
+   规矩见 `design/v6-preview.md`「这两张图是真实组件渲染的」——
    `design/_v6_src/render-preview.mjs` 走 CDP + 真实时钟，不许用静态稿糊弄。
    > **本轮已升级**：除了出图，脚本还能导出**几何表**与**真实 SVG**
    > （`PREVIEW_DUMP=1` / `PREVIEW_SVG=1`），Figma 帧直接拿这两份搭——
@@ -189,7 +195,9 @@
 |---|---|
 | `src/client/usage-theme.ts` | 色 / 间距 / 圆角常量（单一事实来源） |
 | `src/client/UsageCompact.tsx` | 竖屏构图 |
-| `design/v6-vertical-preview.md` | 逐块对照表 + 预览成图 + **实现偏差** |
+| `src/client/UsageWide.tsx` | 宽版构图（3D 环 + 两列卡片） |
+| `src/client/usage-metrics.ts` | 折线序列与涨跌签的算法（窄宽共用） |
+| `design/v6-preview.md` | 逐块对照表 + 预览成图 + **实现偏差** |
 
 设计稿改了但实现没跟上 = 漂移；实现改了但稿子没跟上 = 另一份漂移。
 两边都要动，且用真实组件渲染的那张图来做裁判。
@@ -223,11 +231,42 @@
 
 ### 9.3 工具层
 
-- **Figma 的 `batch` 现在能传数字**（插件 0.6.0 实测：坐标、颜色、圆角都精确回写），
-  一屏 360×800 的稿子靠它几批就搭完。
+- **Figma 的 `batch` 时灵时不灵**：插件 0.6.0 本身传数字没问题（坐标、颜色、圆角都精确回写），
+  竖屏 360×800 的稿子靠它几批就搭完。但宽版这条链路上 `batch` **把所有数字参数转成了字符串**
+  （报「expected number, received string」，数组参数变 object）。
+  绕法：**脚本生成一份整帧 SVG → 一次 `import_svg`**（`make-figma-frame.mjs`）。
 - **Figma 的 `set_fills` 不接受空数组**：`fills: []` 会被当成字符串而报错，
   「透明」要写成 `opacity: 0` 的实色。
 - **SVG 的 `stroke-dasharray` 进 Figma 会散成多段断弧**；
   环形的进度要用 Figma 原生弧形（`set_arc`）画。
 - **SVG 的 CSS `transform` Figma 不认**，要烘焙成 SVG 属性。
+- **SVG 的 `viewBox` 不能剥**：里面的路径用的是 viewBox 坐标，不是元素像素。
+  Lucide 图标的 viewBox 是 24×24，实际只画 10×10（11×11）——
+  剥掉 viewBox 就按 24×24 画了，图标大一倍多，描边也跟着粗，
+  结果是箭头压在涨跌签的文字上。整帧 SVG 里要显式写 `scale()`。
+- **`text-transform: uppercase` 是 CSS 算出来的效果，DOM 里存的是原文**：
+  不在导出的几何里带上 `textTransform`、也不在拼 SVG 时补 `toUpperCase()`，
+  Figma 那边就是「Input (uncached)」而不是「INPUT (UNCACHED)」。
+- **3D 环只能进 Figma 当位图**（透视没法转矢量）。
+  用 `canvas.toDataURL()` 取透明底的 canvas 层，
+  **必须挂进 `requestAnimationFrame`**——排在 three 的渲染回调之后、合成之前，
+  才拿得到刚画完的那一帧（`preserveDrawingBuffer` 没开，晚一帧读回来是空的）。
+  环心的字与环外的百分比标签是 DOM 覆盖层，**留在矢量层里当可编辑文本**。
+
+### 9.4 宽版这一轮（1280×720）
+
+- **宽版是独立组件，不是「把竖屏拉宽」**：`UsageWideView` 与 `UsageCompactView` 同构，
+  `UsageDashboard.tsx` 只负责量宽度、选布局、传参。
+  预览要渲「真组件」，预览入口就得挂同一个组件——
+  所以宽版也拆出了自己的 `design/_v6_src/preview-1280.tsx`。
+- **环的大小是量出来的**：宿主右栏高度随窗口变（1080p 约 950，笔记本 750 上下）。
+  固定尺寸定不了这件事。做法是「内容溢出多少就把环压小多少」，**只压不放**——
+  放回去容易来回抖。1280×720 这一稿量出 41px 溢出，环压到 259。
+- **窄宽共用的东西要抽出去**：折线序列与涨跌签的算法（`usage-metrics.ts`）、
+  底栏 ghost 按钮的样式（`usage-buttons.ts`，预览与实现共用一份，
+  否则成图里的按钮和真面板里的按钮会长得不一样）。
+- **旧稿该清就清**：Figma 上 v5 的宽版双栏、金融竖屏、400×520 / 720×420 三张旧稿
+  与它们所在的旧页一并删掉；仓库里 v5 的成图与预览说明也删掉，
+  引用它们的 README 与 `motion-spec.md` 同步改指 v6。
+  3D 轨道矩阵的**几何说明页**留着——宽版还在用它。
 
