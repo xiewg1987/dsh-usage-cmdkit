@@ -1,47 +1,48 @@
 /**
  * 竖屏（窄栏）面板：金融竖屏那一版视觉。
  *
- * 与宽版（≥900px 的双栏 + 3D 轨道矩阵）是**两套独立构图**，不是同一套的缩放：
- * 竖屏这一版按「夜里看盘」的竖屏应用重排——
+ * 与宽版（≥900px 的双栏 + 3D 轨道矩阵）是**两套独立构图**，不是同一套的缩放。
+ * 竖屏这一版按「夜里看盘」的竖屏应用重排，节奏是**上密下疏**：
  *
- *   大数（总 tokens） → 小环（占比） → 指标卡（命中率） → 四行分类 → 一句洞察
+ *   品牌头 → 控件行 → 主指标（大数 + 涨跌签 + 折线 + 表盘）
+ *          → 两枚指标块 → 四行分类（带行内微折线）→ 一句洞察 → 状态条
  *
  * 视觉规矩（全页只允许两种彩色）：
  * - 底色近黑的午夜蓝，卡片是深灰半透明圆角，**没有霓虹描边、没有网格**；
  * - 界面色只有蓝青一种（选中态、进度环、标签）；
- * - 品类色退回到「一颗小圆点 + 一条 5px 细进度条」，不发光、不画柱；
+ * - 品类色退回到「一颗小圆点 + 一条 5px 细进度条 + 一段行内微折线」，不发光、不画柱；
  * - 数值白、标签灰，其余一律灰阶。
  *
  * 组件自己不绑 locale：`t` 由调用方传进来。
  * 这样同一份代码既挂在宿主里（locale 服务注入 `t`），
  * 也能在设计稿预览里喂一份本地字典（`design/_v5_src/`）——
  * **预览图渲染的就是这份实现本身**，不是另画一张。
+ *
+ * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useRef, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets } from '../protocol.js'
+import type { UsageBuckets, UsageDailyPoint } from '../protocol.js'
 import {
   BrandHeader,
   Insight,
-  Kpi,
   StatusFooter,
-  ViewTabs,
   WindowPills,
 } from './UsageChrome.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
+import { DeltaChip, MiniGauge, SegmentedControl, Sparkline, StatTile } from './UsageMeters.js'
 import {
   ACCENT_CYAN,
   CARD,
   CARD_EDGE,
   FAINT,
   FONT_MONO,
-  HAIR,
-  MUTED,
+  HAIRLINE,
   PANEL_BG,
   POSITIVE,
-  RING_TRACK,
+  RADIUS,
+  SPACE,
   TEXT,
   formatCompact,
-  formatCount,
   percentOf,
 } from './usage-theme.js'
 import { dropIn, riseIn, useCountUp } from './usage-motion.js'
@@ -57,8 +58,8 @@ export interface CompactTiming {
   pills: number
   /** 主指标卡。 */
   hero: number
-  /** 指标卡。 */
-  kpi: number
+  /** 指标块行。 */
+  stats: number
   /** 分类列表第一行。 */
   rows: number
   /** 相邻两行的间隔。 */
@@ -69,89 +70,6 @@ export interface CompactTiming {
   insight: number
   /** 底栏。 */
   footer: number
-}
-
-/** 小进度环的属性。 */
-export interface MiniRingProps {
-  /** 占比（0–100）。 */
-  share: number
-  /** 直径（px）。 */
-  size: number
-  /** 环心的数字。 */
-  center: string
-  /** 环下方的说明。 */
-  caption: string
-}
-
-/**
- * 小进度环：**一条**蓝青进度 + 一圈暗灰轨道。
- *
- * 旧版的大环是四段彩虹（每一桶一段），在竖屏上既占地方又吵。
- * 这里只留一条进度：环心一个数、环下一行说明，讲清「这个数是什么」就够了。
- *
- * @param props - 占比、直径、环心数字与说明。
- * @returns 小进度环。
- */
-export function MiniRing(props: MiniRingProps): ReactNode {
-  const { share, size, center, caption } = props
-  const stroke = Math.max(4, Math.round(size * 0.078))
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const clamped = Math.max(0, Math.min(100, share))
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 'none' }}>
-      <div style={{ position: 'relative', width: size, height: size, flex: 'none' }}>
-        <svg width={size} height={size} style={{ display: 'block', transform: 'rotate(-90deg)' }} aria-hidden="true">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={RING_TRACK}
-            strokeWidth={stroke}
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={ACCENT_CYAN}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={`${(circumference * clamped) / 100} ${circumference}`}
-          />
-        </svg>
-        <span
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: Math.round(size * 0.2),
-            fontWeight: 700,
-            color: TEXT,
-            letterSpacing: '-0.01em',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {center}
-        </span>
-      </div>
-      <span
-        style={{
-          fontFamily: FONT_MONO,
-          fontSize: 8,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: FAINT,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {caption}
-      </span>
-    </div>
-  )
 }
 
 /** 竖屏面板的属性。 */
@@ -166,7 +84,7 @@ export interface UsageCompactProps {
   total: number
   /** 四个桶的短名（分类列表用）。 */
   names: readonly TelemetryName[]
-  /** 时间窗的短标签（30D / 30 日），主指标与花费副行用。 */
+  /** 时间窗的短标签（30D / 30 日），主指标标签用。 */
   windowShort: string
   /** 时间窗可选项。 */
   windows: readonly { value: string; label: string }[]
@@ -180,10 +98,22 @@ export interface UsageCompactProps {
   uncachedShare: number
   /** 每日均摊的除数（时间窗覆盖的天数）。 */
   days: number
+  /**
+   * 日序列（从旧到新）。
+   *
+   * 折线、涨跌签、行内微折线都从这里来——没有它就只剩三块静态数字。
+   */
+  daily?: readonly UsageDailyPoint[]
+  /** 今日总量（指标块用）。 */
+  todayTotal: number
+  /** 近 7 日总量（指标块用）。 */
+  d7Total: number
   /** 状态提示（读取中 / 读取失败）；没有就传 null。 */
   notice?: ReactNode
   /** 底栏状态行。 */
   status: string
+  /** 底栏版本号（单独一段，和状态行之间用中点隔开）。 */
+  version?: string
   /** 底栏动作区。 */
   actions?: ReactNode
   /** 窗口很矮：用更紧的排版。 */
@@ -192,8 +122,14 @@ export interface UsageCompactProps {
   timing: CompactTiming
 }
 
+/** 一串数的平均值。 */
+function average(values: readonly number[]): number {
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
 /**
- * 渲染竖屏面板。
+ * 竖屏面板的属性（内部计算用）。
  * @param props - 面板数据、文案与动作。
  * @returns 竖屏面板。
  */
@@ -211,8 +147,12 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     rate,
     uncachedShare,
     days,
+    daily,
+    todayTotal,
+    d7Total,
     notice,
     status,
+    version,
     actions,
     dense,
     timing,
@@ -223,7 +163,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   const tabsRef = useRef<HTMLDivElement | null>(null)
   const pillsRef = useRef<HTMLDivElement | null>(null)
   const heroRef = useRef<HTMLDivElement | null>(null)
-  const kpiRef = useRef<HTMLDivElement | null>(null)
+  const statsRef = useRef<HTMLDivElement | null>(null)
   const insightRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
 
@@ -236,31 +176,53 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     dropIn(tabsRef.current, timing.tabs)
     dropIn(pillsRef.current, timing.pills)
     riseIn(heroRef.current, timing.hero, 220)
-    riseIn(kpiRef.current, timing.kpi, 200)
+    riseIn(statsRef.current, timing.stats, 200)
     riseIn(insightRef.current, timing.insight, 200)
     riseIn(footerRef.current, timing.footer, 180)
   }, [timing])
 
   /** 主数字：入场从 0 滚上来。 */
   const counted = useCountUp(total, timing.hero, 520)
-  const gap = dense ? 12 : 16
-  const share = percentOf(buckets.uncachedInputTokens, total)
+  const gap = dense ? SPACE.md : SPACE.lg
+
+  // 日序列：总量折线 + 每桶自己的走势。
+  const dailyTotals = (daily ?? []).map((point) =>
+    point.uncachedInputTokens + point.outputTokens + point.cacheReadTokens + point.cacheWriteTokens,
+  )
+  const bucketSeries = names.map((name) => (daily ?? []).map((point) => point[name.key]))
+
+  /**
+   * 涨跌签：当前窗口的日均，跟前一个等长窗口的日均比。
+   *
+   * 30 日窗没有 60 天可比，就退成「后 15 天 vs 前 15 天」——
+   * 比不出来的时候宁可不画，也不要画一个假箭头。
+   */
+  const half = Math.floor(dailyTotals.length / 2)
+  const span = days >= half ? half : days
+  const recent = dailyTotals.slice(-span)
+  const previous = dailyTotals.slice(-span * 2, -span)
+  const recentAvg = average(recent)
+  const previousAvg = average(previous)
+  const delta = previousAvg > 0 && recent.length > 0 && previous.length > 0
+    ? ((recentAvg - previousAvg) / previousAvg) * 100
+    : null
+  const deltaLabel = days <= 1 ? t('delta.vsDay') : t('delta.vs', { days: String(span) })
 
   const hero = (
     <div
       ref={heroRef}
       style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
-        gap: 14,
-        padding: '16px 16px',
-        borderRadius: 12,
+        gap: SPACE.md,
+        padding: '16px 16px 14px',
+        borderRadius: RADIUS.md,
         background: CARD,
         border: `1px solid ${CARD_EDGE}`,
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1 }}>
         <span
           style={{
             fontFamily: FONT_MONO,
@@ -275,50 +237,60 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
           {' · '}
           <span style={{ color: ACCENT_CYAN }}>{windowShort}</span>
         </span>
-        <span
-          style={{
-            fontSize: dense ? 38 : 42,
-            fontWeight: 700,
-            color: TEXT,
-            letterSpacing: '-0.02em',
-            lineHeight: 1.04,
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {formatCompact(counted)}
-        </span>
-        <span style={{ fontSize: 10.5, color: MUTED }}>
-          {t('ring.dailyAvg', { value: formatCompact(counted / days) })}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: dense ? 38 : 42,
+              fontWeight: 700,
+              color: TEXT,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.04,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {formatCompact(counted)}
+          </span>
+          <DeltaChip percent={delta} label={deltaLabel} />
+        </div>
+        {dailyTotals.length > 1 && (
+          <Sparkline values={dailyTotals} width={dense ? 104 : 124} height={24} area />
+        )}
       </div>
-      <MiniRing
-        share={share}
-        size={dense ? 56 : 64}
-        center={`${share}%`}
-        caption={t('bucket.uncachedInput.short')}
+      <MiniGauge
+        share={Math.round(rate * 100)}
+        size={dense ? 60 : 72}
+        center={`${(rate * 100).toFixed(1)}%`}
+        caption={t('gauge.hitRate')}
       />
     </div>
   )
 
-  const kpi = (
-    <div ref={kpiRef}>
-      <div
-        style={{
-          padding: '12px 13px',
-          borderRadius: 10,
-          background: CARD,
-          border: `1px solid ${CARD_EDGE}`,
-          minWidth: 0,
-        }}
-      >
-        <Kpi
-          label={t('kpi.hitRate')}
-          labelColor={FAINT}
-          value={`${(rate * 100).toFixed(1)}%`}
-          sub={t('kpi.hitSub', { count: formatCount(buckets.cacheReadTokens) })}
-          subColor={POSITIVE}
-        />
-      </div>
+  /** 指标块行：两枚并排在一张卡里，中间一道发丝线。 */
+  const stats = (
+    <div
+      ref={statsRef}
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: SPACE.md,
+        padding: '12px 13px',
+        borderRadius: RADIUS.sm,
+        background: CARD,
+        border: `1px solid ${CARD_EDGE}`,
+      }}
+    >
+      <StatTile
+        label={t('stat.today')}
+        value={formatCompact(todayTotal)}
+        share={total > 0 ? percentOf(todayTotal, total) : 0}
+      />
+      <div aria-hidden="true" style={{ width: 1, background: HAIRLINE, flex: 'none' }} />
+      <StatTile
+        label={t('stat.d7')}
+        value={formatCompact(d7Total)}
+        share={total > 0 ? percentOf(d7Total, total) : 0}
+        color={POSITIVE}
+      />
     </div>
   )
 
@@ -326,7 +298,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     <div
       style={{
         padding: '14px 14px',
-        borderRadius: 12,
+        borderRadius: RADIUS.md,
         background: CARD,
         border: `1px solid ${CARD_EDGE}`,
       }}
@@ -336,6 +308,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
         names={names}
         variant="flat"
         dense={dense}
+        series={bucketSeries}
         timing={{ rows: timing.rows, rowStep: timing.rowStep, bars: timing.bars }}
       />
     </div>
@@ -344,7 +317,12 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   // 洞察跟着数据走：未缓存输入占了大头时，不能还说它「保持低位」。
   const insight = (
     <div ref={insightRef}>
-      <Insight variant="card">
+      <Insight
+        variant="card"
+        title={t('insight.title')}
+        bar={uncachedShare}
+        barColor={uncachedShare > 40 ? ACCENT_CYAN : POSITIVE}
+      >
         {uncachedShare > 40
           ? t('insight.uncachedHigh', { pct: `${uncachedShare}%` })
           : t('insight.uncachedLow', { pct: `${uncachedShare}%` })}
@@ -365,7 +343,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
         background: PANEL_BG,
         color: TEXT,
         border: `1px solid ${CARD_EDGE}`,
-        borderRadius: 14,
+        borderRadius: RADIUS.panel,
         padding: '16px 16px 14px',
         fontSize: 13,
         lineHeight: 1.5,
@@ -402,29 +380,29 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
               title={t('brand.name')}
               usageLabel={t('brand.usage')}
               accent={ACCENT_CYAN}
+              size="compact"
             />
           </div>
 
-          <div aria-hidden="true" style={{ height: 1, background: HAIR, flex: 'none' }} />
+          <div aria-hidden="true" style={{ height: 1, background: HAIRLINE, flex: 'none' }} />
 
-          {/* 视图 Tab 与时间窗：窄屏放不下就换行，药丸靠右。 */}
+          {/* 控件行：视图分段 + 时间窗药丸。窄屏放不下就换行。 */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: 10,
+              gap: SPACE.sm,
             }}
           >
             <div ref={tabsRef}>
-              <ViewTabs
+              <SegmentedControl
                 items={[t('view.overview'), t('view.top'), t('view.alerts')]}
                 active={0}
                 soonHint={t('view.soon')}
                 onSelect={() => undefined}
                 accent={ACCENT_CYAN}
-                size="compact"
               />
             </div>
             <div ref={pillsRef} style={{ marginLeft: 'auto' }}>
@@ -441,7 +419,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
           {notice}
 
           {hero}
-          {kpi}
+          {stats}
           {telemetry}
           {insight}
 
@@ -468,9 +446,15 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
               paddingTop: gap,
             }}
           >
-            <div aria-hidden="true" style={{ height: 1, background: HAIR, flex: 'none' }} />
+            <div aria-hidden="true" style={{ height: 1, background: HAIRLINE, flex: 'none' }} />
             <div ref={footerRef}>
-              <StatusFooter status={status} size="compact" actions={actions} />
+              <StatusFooter
+                status={status}
+                version={version}
+                size="compact"
+                dot="ok"
+                actions={actions}
+              />
             </div>
           </div>
         </div>

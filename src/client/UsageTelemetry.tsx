@@ -10,6 +10,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../protocol.js'
 import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from './usage-theme.js'
+import { Sparkline } from './UsageMeters.js'
 import { EASE_LINEAR, EASE_OUT, riseIn } from './usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
 
@@ -46,6 +47,13 @@ export interface UsageTelemetryProps {
   dense?: boolean
   /** 入场节拍。 */
   timing: TelemetryTiming
+  /**
+   * 每桶的日序列（与 `names` 同序）。
+   *
+   * 给了就在行尾画一段微型折线——只有总量看不出波动，
+   * 一条 30 日的小折线能立刻说明「这桶是最近才涨起来的」。
+   */
+  series?: readonly (readonly number[])[]
 }
 
 /**
@@ -72,7 +80,7 @@ const DENSITY = {
  * @returns 列表。
  */
 export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
-  const { buckets, names, variant = 'compact', dense = false, timing } = props
+  const { buckets, names, variant = 'compact', dense = false, timing, series } = props
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
   const flat = variant === 'flat'
   const d = dense
@@ -102,7 +110,18 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
   }, [])
 
   return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: d.gap }}>
+    <ul
+      style={{
+        listStyle: 'none',
+        margin: 0,
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        // 竖屏那一版：行距由「行内那道发丝线」承担，所以列表本身不再留 gap。
+        // 每行 16(行名) + 7 + 5(细条) + 16(发丝线带) = 44，正好对上 v6 的行高刻度。
+        gap: flat ? 0 : d.gap,
+      }}
+    >
       {names.map((name, index) => {
         const value = buckets[name.key]
         const glass = BUCKET_GLASS[index]
@@ -148,7 +167,18 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                   {name.label}
                 </span>
               </span>
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 16, flex: 'none' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: flat ? 10 : 16, flex: 'none' }}>
+                {/* 行内微型折线：这桶自己 30 日的走势，用它自己的颜色。 */}
+                {flat && series !== undefined && series[index] !== undefined && (
+                  <Sparkline
+                    values={series[index]}
+                    width={44}
+                    height={12}
+                    color={glass.base}
+                    dot={0}
+                    strokeWidth={1.2}
+                  />
+                )}
                 <span
                   style={{
                     fontSize: flat ? d.font + 1 : d.font,
@@ -200,6 +230,18 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                 }}
               />
             </div>
+            {/*
+              行间发丝线：最后一行不画。
+              它不是装饰——是把行与行分开的那道线，和「四行遥测」的数据感是一回事。
+            */}
+            {flat && index < names.length - 1 && (
+              <div
+                aria-hidden="true"
+                style={{ height: 16, display: 'flex', alignItems: 'center' }}
+              >
+                <div style={{ width: '100%', height: 1, background: 'rgba(255,255,255,0.06)' }} />
+              </div>
+            )}
           </li>
         )
       })}

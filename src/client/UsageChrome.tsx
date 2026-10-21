@@ -20,10 +20,12 @@ import {
   GRID_MAJOR,
   HAIR,
   MUTED,
+  POSITIVE,
   SURFACE,
   TEXT,
   rgba,
 } from './usage-theme.js'
+import { IconInfo } from './usage-icons.js'
 
 /**
  * 一条极细的分隔线。
@@ -102,6 +104,13 @@ export interface BrandHeaderProps {
   usageLabel: string
   /** 强调色，默认电光蓝；竖屏那一版传蓝青。 */
   accent?: string
+  /**
+   * 字号档位。
+   *
+   * `compact` 是竖屏（金融竖屏）那一档：右侧的面板名退成 **9px 灰字**——
+   * v6 的强调色上限是 2，这一处让给选中态与进度环。
+   */
+  size?: 'normal' | 'compact'
 }
 
 /**
@@ -113,12 +122,24 @@ export interface BrandHeaderProps {
  * @returns 品牌头。
  */
 export function BrandHeader(props: BrandHeaderProps): ReactNode {
-  const { title, usageLabel } = props
+  const { title, usageLabel, size = 'normal' } = props
   const accent = props.accent ?? ACCENT
+  const compact = size === 'compact'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{title}</span>
-      <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: accent }}>{usageLabel}</span>
+      <span
+        style={{
+          marginLeft: 'auto',
+          fontSize: compact ? 9 : 11,
+          fontWeight: 600,
+          letterSpacing: compact ? '0.12em' : '0',
+          textTransform: compact ? 'uppercase' : 'none',
+          color: compact ? FAINT : accent,
+        }}
+      >
+        {usageLabel}
+      </span>
     </div>
   )
 }
@@ -238,9 +259,11 @@ export function WindowPills(props: WindowPillsProps): ReactNode {
               textTransform: 'uppercase',
               padding: compact ? '4px 7px' : '5px 10px',
               borderRadius: 6,
+              // 选中是**描边**药丸，不是实心块：它旁边还有分段控件，
+              // 两处都用实心填充的话，选中语言会打架。
               border: `1px solid ${on ? accent : EDGE}`,
-              background: on ? accent : 'transparent',
-              color: on ? SURFACE : MUTED,
+              background: on ? rgba(accent, 0.12) : 'transparent',
+              color: on ? accent : MUTED,
               cursor: 'pointer',
             }}
           >
@@ -311,11 +334,11 @@ export function Kpi(props: KpiProps): ReactNode {
 }
 
 /**
- * 底栏：左侧等宽状态行，右侧动作按钮。
+ * 底栏：左侧状态点 + 状态行，右侧动作按钮。
  *
- * 紧凑档给竖屏用：状态行缩到 8.5px、字距收紧，
- * 这样「仓库名 · 同步 · 本机 · 版本号」这一整行能不被动作按钮挤掉。
- * @param props - 状态文案、悬停提示、字号档位与动作区。
+ * 状态点是一枚 6px 的绿点——底栏全是小字，没有一个「活着」的信号，
+ * 面板看起来就像一张静态截图。
+ * @param props - 状态文案、状态点、悬停提示、字号档位与动作区。
  * @returns 底栏。
  */
 export function StatusFooter(props: {
@@ -323,10 +346,26 @@ export function StatusFooter(props: {
   actions?: ReactNode
   title?: string
   size?: 'normal' | 'compact'
+  /** 状态点：ok 是绿点，off 是灰点；不给就不画。 */
+  dot?: 'ok' | 'off'
+  /** 版本号：单独一段，和状态行之间用中点隔开。 */
+  version?: ReactNode
 }): ReactNode {
   const compact = props.size === 'compact'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 12 }}>
+      {props.dot !== undefined && (
+        <span
+          aria-hidden="true"
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: props.dot === 'ok' ? POSITIVE : FAINT,
+            flex: 'none',
+          }}
+        />
+      )}
       <span
         title={props.title}
         style={{
@@ -341,6 +380,21 @@ export function StatusFooter(props: {
       >
         {props.status}
       </span>
+      {props.version !== undefined && (
+        <span
+          aria-hidden="true"
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: compact ? 8.5 : 9,
+            color: FAINT,
+            opacity: 0.75,
+            whiteSpace: 'nowrap',
+            flex: 'none',
+          }}
+        >
+          · {props.version}
+        </span>
+      )}
       {props.actions !== undefined && (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flex: 'none' }}>{props.actions}</div>
       )}
@@ -372,12 +426,26 @@ export function BottomRule(): ReactNode {
  * - `bar`（默认）：左侧一条强调色竖线 + 文字；
  * - `card`：扁平说明卡——深灰半透明底、极淡描边，**没有霓虹**。
  *
+ * `card` 形态还可以带一个小标题与右侧的占比条，
+ * 这样一句话就不是悬在卡片里的一段浮字，而是「标题 + 说明 + 读数」三层。
+ *
  * @param props - 文案与形态。
  * @returns 洞察块。
  */
-export function Insight(props: { children: ReactNode; variant?: 'bar' | 'card'; accent?: string }): ReactNode {
+export function Insight(props: {
+  children: ReactNode
+  variant?: 'bar' | 'card'
+  accent?: string
+  /** 小标题（仅 card 形态）。 */
+  title?: string
+  /** 右侧占比条（0–100，仅 card 形态）。 */
+  bar?: number
+  /** 占比条颜色。 */
+  barColor?: string
+}): ReactNode {
   const accent = props.accent ?? ACCENT
   if (props.variant === 'card') {
+    const barColor = props.barColor ?? accent
     return (
       <div
         style={{
@@ -385,11 +453,56 @@ export function Insight(props: { children: ReactNode; variant?: 'bar' | 'card'; 
           borderRadius: 10,
           background: 'rgba(255,255,255,0.028)',
           border: `1px solid ${EDGE}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 7,
         }}
       >
-        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
-          {props.children}
-        </p>
+        {props.title !== undefined && (
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontFamily: FONT_MONO,
+              fontSize: 9,
+              fontWeight: 500,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: FAINT,
+            }}
+          >
+            <IconInfo size={11} color={FAINT} strokeWidth={2} />
+            {props.title}
+          </span>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <p style={{ margin: 0, flex: 1, fontSize: 11.5, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
+            {props.children}
+          </p>
+          {props.bar !== undefined && (
+            <div
+              aria-hidden="true"
+              style={{
+                width: 64,
+                flex: 'none',
+                height: 4,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.07)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.max(0, Math.min(100, props.bar))}%`,
+                  height: '100%',
+                  borderRadius: 2,
+                  background: barColor,
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     )
   }

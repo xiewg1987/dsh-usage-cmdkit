@@ -29,6 +29,7 @@
 | 3D 轨道矩阵（three.js，无 WebGL 自动降级） | ✅ 已发布 |
 | 中英文文案 | ✅ 已发布 |
 | 缓存命中率指标（命中 / 总输入） | ✅ 已发布 |
+| v6 竖屏视觉（大数 + 涨跌签 + 折线 + 表盘 + 两枚 stat + 行内微折线） | ✅ 已发布 |
 | 日均 sparkline（当前只有日均值） | 🚧 计划中 |
 | Top3 截断（当前按来源是完整列表） | 🚧 计划中 |
 | Alerts 阈值告警 | 🚧 计划中 |
@@ -103,27 +104,32 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 是从这份 JSON 换算出来的，不是手摆的。渲染脚本自己会**量一遍**（逐像素反解回
 环平面，逐桶量覆盖角 / 屏幕宽度 / 实测色），对不上就说明实现漂了。
 
-### v5.1 · 竖屏改成金融版（360×800）
+### v6 · 竖屏重做（360×800）
 
-窄栏（不到 900px 的右栏）不再用 3D 轨道矩阵：那个四段彩虹大环在 360px 宽的竖屏上
-既占地方又吵。竖屏改成**金融竖屏**那一版——大数、小环、一枚指标卡、分类列表，
-近黑午夜蓝底 + 深灰半透明卡片，全页只两种彩色（界面蓝青 + 涨跌绿）。
+窄栏（不到 900px 的右栏）从 v5.1 的「金融竖屏」再改一版，按
+[design/v6-visual-direction.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-visual-direction.md)
+重排：**上密下疏**，大数下面加了涨跌签与折线，右侧的环改成命中率表盘，
+指标卡从一枚高卡变成两枚横排，分类行加了行内微折线，洞察卡变成
+「小标题 + 说明 + 占比条」三层，底栏加了状态点。
 
-![竖屏 360×800](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v5-360x800.png)
+![竖屏 360×800](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png)
 
-> 这张图是**真实组件**渲染出来的（`design/_v5_src/render-preview.mjs` 挂载
+> 这张图是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
 > `src/client/UsageCompact.tsx` 后用 Chrome 截的），不是另画的静态稿。
-> 逐块对照表、视觉规矩与取舍见 [design/v5-vertical-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v5-vertical-preview.md)。
+> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-vertical-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-vertical-preview.md)。
 > 宽面板（≥900px）仍是 3D 轨道矩阵双栏。
 
-竖屏这一版**不含**花费估算与命令入口：视图 Tab 因此只剩 `总览 / Top / 告警`
-（没有「花费」），指标卡只剩缓存命中率一枚，底栏是状态条 + 刷新 / 清空。
-原因见 [design/v5-vertical-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v5-vertical-preview.md)
-里的「这一版被删掉的两块」。
+**趋势是画出来的，不是算出来凑的**：折线与涨跌签都来自宿主已有的日 rollup
+（`UsageSummary.daily`，30 日零填充、旧→新）。涨跌签比的是
+「当前窗口日均 vs 前一等长窗口日均」，30 日窗退化成后 15 天 vs 前 15 天；
+**比不出来就不画**。
 
-> 底栏状态条是 **sticky** 的：右栏只有几百像素高、面板比视口高时，
-> `dsh-usage-cmdkit · synced · local ok · v0.1.0` 仍贴在可视区底部，
-> 不用往下滚才看得见。
+**稿子与实现同源**：Figma 里那帧（页 `v6 · 视觉方向与参考`）的坐标与矢量
+**由实现渲染导出**（`PREVIEW_DUMP=1` 出几何表、`PREVIEW_SVG=1` 出 SVG），
+不是照着成图手摆的——改实现后重跑脚本即可同步。
+
+竖屏这一版**不含**花费估算与命令入口：视图 Tab 因此只剩 `总览 / Top / 告警`
+（没有「花费」），底栏是状态条 + 刷新 / 清空。
 
 ---
 
@@ -214,8 +220,10 @@ src/
   client/            浏览器半（右栏的一个 Tab）
     index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND
     UsageDashboard.tsx / UsageRing.tsx / UsageTelemetry.tsx / UsageTitle.tsx
-    UsageCompact.tsx 窄栏（<900px）那一版：金融竖屏构图
-    UsageChrome.tsx  v4 外框件：底纹、品牌头、视图 Tab、时间窗、指标、底栏
+    UsageCompact.tsx 窄栏（<900px）那一版：v6 竖屏构图
+    UsageChrome.tsx  外框件：底纹、品牌头、视图 Tab、时间窗、指标、底栏
+    UsageMeters.tsx  读数件：折线 / 小表盘 / 涨跌签 / 指标块 / 分段控件
+    usage-icons.tsx  Lucide 图标（ISC，路径原样搬入，不加 npm 依赖）
     UsageRing3D.tsx  3D 环宿主：canvas + DOM 读数覆盖层 + 降级到 SVG 环
     usage-3d.ts      three.js 场景：鳍片环、底轨、刻度、数据轨、读取头
     usage-ring-geometry.ts  2D / 3D 共用的分段与标签规则
@@ -228,7 +236,7 @@ src/
 scripts/
   build-client.mjs   浏览器半 → lib/client.js（入口）+ lib/client.usage3d.js（3D 分片）
 docs/                实施文档（00 统一说明 + 01/02/03 步骤文档）
-design/              视觉稿（v4 成图已入库，源文件在 _v4_src/，本地）
+design/              视觉稿（成图入库，源文件在 _v4_src/ / _v6_src/，本地）
 cordis.patch.yml     插件装载行（裸包名才会加载 client 半）
 patch.dev.yml        Host 源码联调（不加载 client 半）
 tsconfig.json        类型检查配置
@@ -297,6 +305,11 @@ pnpm dsh web
 - **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
 - **插件不注册全局快捷键**。宿主的 `⌘K` 已经派给了「搜索会话」，插件再抢同一个键，两个面板会同时响应；`⌘/` 又是宿主的快捷键手册。与其挑一枚不冲突的键（`⌘J` / `Ctrl+Alt+J`）再把改键、冲突检测、键帽渲染都接一遍，不如**完全不占全局键位**——面板里的操作都在面板里做。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
+- **组件的 `children` 必须从 props 取，不能写成第二个位置参数**。
+  React 18 调用函数组件时第二个位置参数是 **legacy context**（一个空对象 `{}`），
+  不是 children。写成 `function Icon(props, children)` 再把它渲染出去，
+  就会炸 `Objects are not valid as a React child (found: object with keys {})`——
+  在 automatic JSX runtime 下（`jsx: 'automatic'`），children 只在 `props.children` 里。
 - **3D 环的坑**（都踩过，记在这儿）：
   - **有合成器时 `toneMapped: false` 会失效**。`EffectComposer` 把场景渲进 render target，three 就**禁用材质级 tone mapping**（`WebGLPrograms` 里判 `currentRenderTarget === null`），ACES 改由 `OutputPass` 对整帧施加一次。于是桶色 `#4c8dff` 过一遍 ACES 变成约 `#659ce2`，蓝弧看着发青、四个桶分不清。**直接 `renderer.render()`** 之后 tone mapping 回到材质级，桶色才原样输出；顺带也省掉 bloom 那套全屏模糊（分片 568 KB → 550 KB）。
   - **入场结束必须显式落一次终态**。弧长是按时间推进的，但推进只发生在入场那几帧里；帧率一掉（软件渲染 / 后台标签页 / 机器卡顿），入场的最后一帧可能停在 200ms，四段弧就永远只长一半——数据看着像被截短。所以入场结束后要再落一次终态（弧长与鳍片直接写成目标值）。

@@ -62,20 +62,56 @@ export const ACCENT_CYAN = '#38bdf8'
  */
 export const POSITIVE = '#22c55e'
 
+/**
+ * 竖屏面板的第三种彩色（只在真的有负值时出现）：涨跌红。
+ *
+ * 三种彩色是**上限**：界面蓝青 + 涨跌绿/红，其余一律灰阶。
+ */
+export const NEGATIVE = '#ef4444'
+
 /** 竖屏面板的进度环轨道：暗灰，不是黑。 */
 export const RING_TRACK = '#1c2433'
+
+/**
+ * 竖屏面板的间距刻度：4 的倍数。
+ *
+ * 全部收在一处，免得同一份稿子里出现 13、15、17 这种随手值。
+ */
+export const SPACE = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+} as const
+
+/** 竖屏面板的圆角刻度。 */
+export const RADIUS = {
+  /** 小卡（指标块、洞察卡）。 */
+  sm: 10,
+  /** 大卡（主指标、分类列表）。 */
+  md: 12,
+  /** 药丸。 */
+  pill: 7,
+  /** 面板本身。 */
+  panel: 14,
+} as const
 
 /** 洞察文案的高亮蓝：比强调色更亮一档，专供这一处。 */
 export const INSIGHT = '#9fc2ff'
 
 /** 主文字。 */
-export const TEXT = '#e9edf4'
+export const TEXT = '#f2f5f9'
 
 /** 次级文字：副文案、数值后缀。 */
-export const MUTED = '#8e99af'
+export const MUTED = '#8b94a3'
 
 /** 三级文字：页脚与微标。 */
-export const FAINT = '#6b7688'
+export const FAINT = '#5b6472'
+
+/** 面板内的发丝线：卡片之间那一道极细的横线。 */
+export const HAIRLINE = 'rgba(255,255,255,0.07)'
 
 /** 唯一强调色：电光蓝。 */
 export const ACCENT = '#4c8dff'

@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import type { TurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
-import type { UsageBuckets, UsageProviderTotal, UsageSummary } from './protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal, UsageSummary } from './protocol.js'
 
 /** 与 Web「本轮用量」一致的四桶 */
 export interface TokenBuckets {
@@ -275,6 +275,25 @@ export function summarize(file: UsageStatsFile, nowMs: number = Date.now()): Usa
     }
   }
 
+  /**
+   * 日序列：从旧到新，缺记录的日子补零。
+   *
+   * 补零而不是跳过：客户端要画折线，跳过空日会把断档连成直线，
+   * 看起来像「那几天用量平稳」，其实是「那几天没用」。
+   */
+  const daily: UsageDailyPoint[] = []
+  for (let offset = WINDOWS.d30 - 1; offset >= 0; offset--) {
+    const day = dayKeyOffset(nowMs, -offset)
+    const total = file.days[day]?.total
+    daily.push({
+      day,
+      uncachedInputTokens: total?.uncachedInputTokens ?? 0,
+      outputTokens: total?.outputTokens ?? 0,
+      cacheReadTokens: total?.cacheReadTokens ?? 0,
+      cacheWriteTokens: total?.cacheWriteTokens ?? 0,
+    })
+  }
+
   return {
     today: sumWindow(1),
     d7: sumWindow(WINDOWS.d7),
@@ -282,6 +301,7 @@ export function summarize(file: UsageStatsFile, nowMs: number = Date.now()): Usa
     byProvider: [...byProvider.values()].sort(
       (a, b) => (b.uncachedInputTokens + b.outputTokens) - (a.uncachedInputTokens + a.outputTokens),
     ),
+    daily,
     generatedAt: nowMs,
   }
 }

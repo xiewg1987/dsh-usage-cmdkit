@@ -23,7 +23,18 @@ export interface UsageProviderTotal extends UsageBuckets {
   model: string
 }
 
-/** 汇总响应：三个时间窗的总量 + 按 provider 的拆分。 */
+/**
+ * 一天的用量：四桶 + 本地日历日。
+ *
+ * 没有这一层，客户端只有三个窗口的合计，画不出趋势；
+ * 有它就能画日折线、行内微型 sparkline，并算出「今日 vs 昨日」。
+ */
+export interface UsageDailyPoint extends UsageBuckets {
+  /** 本地日历日 `YYYY-MM-DD`。 */
+  day: string
+}
+
+/** 汇总响应：三个时间窗的总量 + 按 provider 的拆分 + 日序列。 */
 export interface UsageSummary {
   /** 今日（宿主本地日历日）。 */
   today: UsageBuckets
@@ -33,6 +44,13 @@ export interface UsageSummary {
   d30: UsageBuckets
   /** 近 30 日按 provider/model 的拆分，按总量从大到小。 */
   byProvider: UsageProviderTotal[]
+  /**
+   * 近 30 个日历日的日序列，**从旧到新**。
+   *
+   * 没有记录的日子补零——折线要看见「那天没用量」，
+   * 跳过空日会把断档画成直线，看不出真实起伏。
+   */
+  daily: UsageDailyPoint[]
   /** 汇总生成时刻（毫秒时间戳）。 */
   generatedAt: number
 }
@@ -76,6 +94,15 @@ function isProviderTotal(value: unknown): value is UsageProviderTotal {
     && typeof (value as UsageProviderTotal).model === 'string'
 }
 
+/** 日键的形状：`YYYY-MM-DD`。 */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+function isDailyPoint(value: unknown): value is UsageDailyPoint {
+  return isBuckets(value)
+    && typeof (value as UsageDailyPoint).day === 'string'
+    && DAY_KEY.test((value as UsageDailyPoint).day)
+}
+
 /**
  * 校验 Host 读回的汇总响应。
  *
@@ -87,5 +114,6 @@ export function isUsageSummary(value: unknown): value is UsageSummary {
   if (!isRecord(value)) return false
   if (!isBuckets(value.today) || !isBuckets(value.d7) || !isBuckets(value.d30)) return false
   if (!Array.isArray(value.byProvider) || !value.byProvider.every(isProviderTotal)) return false
+  if (!Array.isArray(value.daily) || !value.daily.every(isDailyPoint)) return false
   return isCount(value.generatedAt)
 }

@@ -51,17 +51,16 @@ export const TIMING = {
   /** 紧凑版（金融竖屏）：总长约 0.95s。 */
   compact: {
     frame: 0,
-    header: 80,
-    tabs: 90,
-    pills: 90,
-    hero: 190,
-    kpi: 320,
-    kpiStep: 60,
-    rows: 420,
+    header: 60,
+    tabs: 80,
+    pills: 80,
+    hero: 140,
+    stats: 260,
+    rows: 340,
     rowStep: 50,
-    bars: 420,
+    bars: 360,
     insight: 620,
-    footer: 780,
+    footer: 720,
   },
 } as const
 

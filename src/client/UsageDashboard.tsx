@@ -217,6 +217,16 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [shown],
   )
 
+  /** 今日与近 7 日的总量：竖屏那两枚指标块用。 */
+  const todayTotal = useMemo<number>(
+    () => (summary === undefined ? 0 : RING_KEYS.reduce((sum, key) => sum + summary.today[key], 0)),
+    [summary],
+  )
+  const d7Total = useMemo<number>(
+    () => (summary === undefined ? 0 : RING_KEYS.reduce((sum, key) => sum + summary.d7[key], 0)),
+    [summary],
+  )
+
   /** 四个桶的全名：宽版遥测列表用这一份，写得完整、读得懂。 */
   const names = useMemo<readonly TelemetryName[]>(
     () => [
@@ -364,8 +374,11 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     </>
   )
 
-  /** 底栏状态行：仓库名 · 同步状态 · 本机状态 · 版本号。 */
-  const footerStatus = `${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')} · v${PLUGIN_VERSION}`
+  /** 底栏状态行：仓库名 · 同步状态 · 本机状态。 */
+  const footerStatus = `${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')}`
+
+  /** 底栏版本号：单独一段。 */
+  const footerVersion = `v${PLUGIN_VERSION}`
 
   /**
    * 窄栏：金融竖屏那一版。
@@ -388,17 +401,25 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         names={shortNames}
         windowShort={windowShort}
         windows={[
-          { value: 'today', label: t('window.today') },
-          { value: 'd7', label: t('window.d7') },
-          { value: 'd30', label: t('window.d30') },
+          // 窄栏用短档位（1D / 7D / 30D）：360 宽下长短两套标签放不进一行，
+          // 折成两行会把下面所有区块往下推 28px。
+          { value: 'today', label: t('window.today.short') },
+          { value: 'd7', label: t('window.d7.short') },
+          { value: 'd30', label: t('window.d30.short') },
         ]}
         windowValue={range}
         onWindow={(value) => setUsageRange(value as UsageRange)}
         rate={rate}
         uncachedShare={uncachedShare}
         days={RANGE_DAYS[range]}
+        daily={summary?.daily}
+        todayTotal={todayTotal}
+        d7Total={d7Total}
         notice={notice}
-        status={footerStatus}
+        // 窄栏底栏不重复包名：品牌头已经写着「DSH CmdKit」，
+        // 这里再写一遍「dsh-usage-cmdkit」只会把版本号挤掉。
+        status={`${t('footer.synced')} · ${t('footer.local')}`}
+        version={footerVersion}
         actions={actions}
         dense={tight}
         timing={TIMING.compact}
@@ -501,6 +522,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     <div ref={footerRef}>
       <StatusFooter
         status={footerStatus}
+        version={footerVersion}
         title={summary === undefined ? undefined : clockOf(summary.generatedAt)}
         actions={actions}
       />
