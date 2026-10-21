@@ -9,12 +9,12 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../protocol.js'
-import { BUCKET_GLASS, TEXT, formatCount, percentOf } from './usage-theme.js'
+import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from './usage-theme.js'
 import { EASE_LINEAR, EASE_OUT, riseIn } from './usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
 
 /** 列表的两种排版密度：窄栏里的小字、宽面板时的大字。 */
-export type TelemetryVariant = 'compact' | 'hero'
+export type TelemetryVariant = 'compact' | 'hero' | 'flat'
 
 /** 每一桶要展示的全名（与环外标签同源）。 */
 export interface TelemetryName {
@@ -53,12 +53,17 @@ export interface UsageTelemetryProps {
  *
  * 面板要一屏装下：窗口矮的时候，四行遥测是唯一还占着整块高度的东西，
  * 行距与字号各收一点，四行就能省出二十多像素。
+ *
+ * `flat` 是竖屏（金融竖屏）那一版：字更小、行距更紧，
+ * 进度条改成实心细条，品类色不再发光。
  */
 const DENSITY = {
   compact: { font: 12, gap: 14, labelGap: 7 },
   hero: { font: 15, gap: 16, labelGap: 8 },
   compactDense: { font: 11, gap: 10, labelGap: 5 },
   heroDense: { font: 13, gap: 12, labelGap: 6 },
+  flat: { font: 11, gap: 13, labelGap: 7 },
+  flatDense: { font: 10, gap: 10, labelGap: 5 },
 } as const
 
 /**
@@ -69,8 +74,9 @@ const DENSITY = {
 export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
   const { buckets, names, variant = 'compact', dense = false, timing } = props
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
+  const flat = variant === 'flat'
   const d = dense
-    ? (variant === 'hero' ? DENSITY.heroDense : DENSITY.compactDense)
+    ? (variant === 'hero' ? DENSITY.heroDense : flat ? DENSITY.flatDense : DENSITY.compactDense)
     : DENSITY[variant]
 
   const rowRefs = useRef<(HTMLLIElement | null)[]>([])
@@ -116,7 +122,7 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                {/* 品类色的小圆点：桶的图例标记，和条形、环段是同一套颜色。 */}
+                {/* 品类色的小圆点：桶的图例标记，和条形是同一套颜色。 */}
                 <span
                   aria-hidden="true"
                   style={{
@@ -124,7 +130,8 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                     height: 6,
                     borderRadius: '50%',
                     background: glass.base,
-                    boxShadow: `0 0 6px ${glass.base}99`,
+                    // 竖屏那一版不发光：颜色只标注数据，不参与装饰。
+                    boxShadow: flat ? 'none' : `0 0 6px ${glass.base}99`,
                     flex: 'none',
                   }}
                 />
@@ -132,9 +139,9 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                   style={{
                     fontSize: d.font,
                     fontWeight: 500,
-                    letterSpacing: '0.02em',
+                    letterSpacing: flat ? '0.08em' : '0.02em',
                     textTransform: 'uppercase',
-                    color: TEXT,
+                    color: flat ? '#cbd5e4' : TEXT,
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -144,7 +151,7 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
               <span style={{ display: 'flex', alignItems: 'baseline', gap: 16, flex: 'none' }}>
                 <span
                   style={{
-                    fontSize: d.font,
+                    fontSize: flat ? d.font + 1 : d.font,
                     fontWeight: 600,
                     color: TEXT,
                     fontVariantNumeric: 'tabular-nums',
@@ -153,12 +160,12 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                 >
                   {formatCount(value)}
                 </span>
-                {/* 百分比是这条桶的图例文字，跟着桶色走。 */}
+                {/* 百分比是这条桶的图例文字：竖屏那一版走灰阶，颜色留给圆点与细条。 */}
                 <span
                   style={{
-                    fontSize: d.font,
+                    fontSize: flat ? d.font : d.font,
                     fontWeight: 600,
-                    color: glass.base,
+                    color: flat ? MUTED : glass.base,
                     fontVariantNumeric: 'tabular-nums',
                     textAlign: 'right',
                     minWidth: 34,
@@ -172,8 +179,8 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
             <div
               style={{
                 position: 'relative',
-                height: 4,
-                borderRadius: 2,
+                height: flat ? 5 : 4,
+                borderRadius: flat ? 3 : 2,
                 background: 'rgba(255,255,255,0.07)',
                 overflow: 'hidden',
               }}
@@ -184,9 +191,11 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                   position: 'absolute',
                   inset: '0 auto 0 0',
                   width: `${share}%`,
-                  borderRadius: 2,
-                  background: `linear-gradient(180deg, ${glass.hi} 0%, ${glass.base} 100%)`,
-                  boxShadow: `0 0 8px ${glass.base}66`,
+                  borderRadius: flat ? 3 : 2,
+                  background: flat
+                    ? glass.base
+                    : `linear-gradient(180deg, ${glass.hi} 0%, ${glass.base} 100%)`,
+                  boxShadow: flat ? 'none' : `0 0 8px ${glass.base}66`,
                   transition: `width 380ms ${EASE_OUT}`,
                 }}
               />

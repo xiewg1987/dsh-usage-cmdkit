@@ -28,30 +28,19 @@
  *   所以带 `dsh.` 段前缀，不占用通用裸词。
  */
 
-// 仅类型：把 locale / slots / SlotMap / shortcuts 合并进 Context；值导入会撞上 client bundle 纯净度门禁。
+// 仅类型：把 locale / slots / SlotMap 合并进 Context；值导入会撞上 client bundle 纯净度门禁。
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer's Context merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-// Type-only: pulls the shortcuts service's Context merge (ctx.shortcuts) 与命令 id 的品牌类型。
-import type { ShortcutCatalogEntry, ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type {} from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { UsageDashboard } from './UsageDashboard.js'
-import { UsageCommands } from './UsageCommands.js'
-import { UsageCommandsTitle } from './UsageCommandsTitle.js'
 import { UsageTitle } from './UsageTitle.js'
 import { en, zh, type UsageKey } from './locales.js'
-import {
-  requestPaletteFocus,
-  setKeyStyle,
-  setPaletteKeys,
-  setUsageNavigator,
-} from './usage-state.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** 用量 Dashboard 与命令面板的文案。 */
+    /** 用量 Dashboard 的文案。 */
     'dsh.usage': UsageKey
   }
 }
@@ -83,26 +72,11 @@ export const TAB_ID = 'dsh-usage-cmdkit'
  */
 export const TAB_KIND = 'usage-dashboard'
 
-/** 命令面板那一面的实现身份。 */
-export const TAB_ID_COMMANDS = 'dsh-usage-cmdkit-commands'
-
-/** 命令面板那一面的类型判别符。 */
-export const TAB_KIND_COMMANDS = 'usage-commands'
+/** 依赖的服务：slot 注册、locale 字典、右栏 tab 注册表。 */
+export const inject = ['slots', 'locale', 'sidebarRightTabs']
 
 /**
- * 全局命令面板快捷键的命令 id。
- *
- * 走**宿主快捷键目录**（`ctx.shortcuts.register`），不自己监听 window：
- * 宿主已经把 ⌘K 派给了「搜索会话」，插件再抢同一个键，两个面板会同时响应。
- * 这一枚另取一个没被占用的键，并且能被用户在自己的快捷键设置里改掉。
- */
-export const PALETTE_COMMAND_ID = 'dsh.usage.palette' as ShortcutCommandId
-
-/** 依赖的服务：slot 注册、locale 字典、右栏 tab 注册表、快捷键目录。 */
-export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'shortcuts']
-
-/**
- * 挂载右栏用量 Tab 与命令面板 Tab。
+ * 挂载右栏用量 Tab。
  * @param ctx - 浏览器根上下文。
  */
 export function apply(ctx: ClientContext): void {
@@ -121,93 +95,17 @@ export function apply(ctx: ClientContext): void {
     }],
   }), 'dsh-usage-cmdkit: sidebar type')
 
-  ctx.effect(() => ctx.sidebarRightTabs.register({
-    id: TAB_ID_COMMANDS,
-    kind: TAB_KIND_COMMANDS,
-    title: () => t('tab.commands'),
-    guide: [{
-      id: 'default',
-      order: 51,
-      title: () => t('tab.commands'),
-      description: () => t('tab.commands.description'),
-    }],
-  }), 'dsh-usage-cmdkit: commands sidebar type')
-
-  // 两个 Tab 共用一个 slot 名，按 key 分开登记：
-  // keyed slot 的 key 就是各自的实现身份（TAB_ID）。
+  // 面板体与标题都以 TAB_ID 为 key 注册到宿主那两个 keyed slot 上。
   ctx.slots.inject('sidebar.right.pane.tab', () => {
     const disposeUsage = ctx.slots.register({
       name: 'sidebar.right.pane.tab', key: TAB_ID, locale: NS,
     }, UsageDashboard)
-    const disposeCommands = ctx.slots.register({
-      name: 'sidebar.right.pane.tab', key: TAB_ID_COMMANDS, locale: NS,
-    }, UsageCommands)
-    return () => { disposeUsage(); disposeCommands() }
+    return () => { disposeUsage() }
   })
   ctx.slots.inject('sidebar.right.pane.tab.title', () => {
-    const disposeUsage = ctx.slots.register({
+    const disposeTitle = ctx.slots.register({
       name: 'sidebar.right.pane.tab.title', key: TAB_ID, locale: NS,
     }, UsageTitle)
-    const disposeCommands = ctx.slots.register({
-      name: 'sidebar.right.pane.tab.title', key: TAB_ID_COMMANDS, locale: NS,
-    }, UsageCommandsTitle)
-    return () => { disposeUsage(); disposeCommands() }
+    return () => { disposeTitle() }
   })
-
-  // 快捷键的呈现环境：平台决定 ⌘ 还是 Ctrl，运行时决定要不要多一个 Alt。
-  setKeyStyle({ platform: ctx.shortcuts.platform, runtime: ctx.shortcuts.runtime })
-
-  /**
-   * 打开右栏的某个 Tab。
-   *
-   * 右栏没有挂载会话时 `openTab` 会抛错——那是宿主的状态，不是异常，
-   * 所以这里吞掉，调用方自己决定要不要提示。
-   * @param kind - Tab 的类型判别符。
-   */
-  const open = (kind: string): void => {
-    try {
-      ctx.sidebarRight.openTab(kind)
-    } catch {
-      // 没有挂载的会话：右栏此刻开不了页。
-    }
-  }
-
-  setUsageNavigator({
-    openUsage: () => { open(TAB_KIND) },
-    openCommands: () => { open(TAB_KIND_COMMANDS); requestPaletteFocus() },
-  })
-
-  ctx.effect(() => ctx.shortcuts.register({
-    id: PALETTE_COMMAND_ID,
-    label: () => t('cmd.palette'),
-    aliases: ['command palette', 'usage commands', '命令面板'],
-    defaults: {
-      'desktop:macos': { code: 'KeyJ', modifiers: ['primary'] },
-      'desktop:windows': { code: 'KeyJ', modifiers: ['primary'] },
-      'desktop:linux': { code: 'KeyJ', modifiers: ['primary'] },
-      // 浏览器里用主修饰键 + Alt：Ctrl+数字 是「切标签页」，会跟浏览器打架。
-      'web:macos': { code: 'KeyJ', modifiers: ['primary', 'alt'] },
-      'web:windows': { code: 'KeyJ', modifiers: ['primary', 'alt'] },
-    },
-    regions: ['page', 'editable'],
-    modals: [],
-    resolve: () => {
-      if (ctx.sidebarRight.mounted.getSnapshot() === undefined) {
-        return { status: 'blocked', reason: t('cmd.noSession') }
-      }
-      return { status: 'handled', run: () => { open(TAB_KIND_COMMANDS); requestPaletteFocus() } }
-    },
-  }), 'dsh-usage-cmdkit: palette shortcut')
-
-  // 键帽从宿主目录读：那是唯一知道「这台机器上这枚键怎么显示」的地方，
-  // 也包含用户自己在设置里改过的绑定。
-  ctx.effect(() => {
-    const sync = (): void => {
-      const row = ctx.shortcuts.catalog.getSnapshot()
-        .find((entry: ShortcutCatalogEntry) => entry.id === PALETTE_COMMAND_ID)
-      setPaletteKeys(row?.keys ?? [])
-    }
-    sync()
-    return ctx.shortcuts.catalog.subscribe(sync)
-  }, 'dsh-usage-cmdkit: palette keycaps')
 }

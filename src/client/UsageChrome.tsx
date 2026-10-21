@@ -98,63 +98,27 @@ export function UsageBackdrop(): ReactNode {
 export interface BrandHeaderProps {
   /** 品牌名。 */
   title: string
-  /** 主视图名（Usage）。 */
+  /** 当前面板名（Usage）。 */
   usageLabel: string
-  /** 另一面（Commands）的名字。 */
-  commandsLabel: string
-  /** 当前停在哪一面。 */
-  active: 'usage' | 'commands'
-  /** 切到 Usage（当前已经在 Usage 时不传）。 */
-  onOpenUsage?: () => void
-  /** 切到 Commands（当前已经在 Commands 时不传）。 */
-  onOpenCommands?: () => void
+  /** 强调色，默认电光蓝；竖屏那一版传蓝青。 */
+  accent?: string
 }
 
 /**
- * 品牌头：左边品牌名，右边 Usage | Commands 切换器。
+ * 品牌头：左边品牌名，右边当前面板名。
  *
- * 两个名字都是**真的能点的**——它们对应右栏里的两个 Tab，
- * 不是装饰，也不是禁用态：这一行就是两个 Tab 之间的切换器。
- * @param props - 品牌头文案与切换器状态。
+ * 右边是**静态标签**：右栏里只有这一个 Tab，没有可切的对象，
+ * 就不摆一个点不动的切换器。
+ * @param props - 品牌头文案。
  * @returns 品牌头。
  */
 export function BrandHeader(props: BrandHeaderProps): ReactNode {
-  const { title, usageLabel, commandsLabel, active, onOpenUsage, onOpenCommands } = props
-  const face = (label: string, on: boolean, open?: () => void): ReactNode => {
-    if (on || open === undefined) {
-      return (
-        <span style={{ fontSize: 11, fontWeight: on ? 600 : 500, color: on ? ACCENT : MUTED }}>{label}</span>
-      )
-    }
-    return (
-      <button
-        type="button"
-        data-usage-open-usage={label === usageLabel ? '' : undefined}
-        data-usage-open-commands={label === commandsLabel ? '' : undefined}
-        onClick={open}
-        style={{
-          font: 'inherit',
-          fontSize: 11,
-          fontWeight: 500,
-          color: MUTED,
-          background: 'transparent',
-          border: 'none',
-          padding: 0,
-          cursor: 'pointer',
-        }}
-      >
-        {label}
-      </button>
-    )
-  }
+  const { title, usageLabel } = props
+  const accent = props.accent ?? ACCENT
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{title}</span>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        {face(usageLabel, active === 'usage', onOpenUsage)}
-        <span style={{ fontSize: 11, color: FAINT }}>|</span>
-        {face(commandsLabel, active === 'commands', onOpenCommands)}
-      </div>
+      <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: accent }}>{usageLabel}</span>
     </div>
   )
 }
@@ -169,6 +133,10 @@ export interface ViewTabsProps {
   soonHint: string
   /** 切换回调。 */
   onSelect: (index: number) => void
+  /** 强调色，默认电光蓝。 */
+  accent?: string
+  /** 字号档位：竖屏那一版用紧凑档，好与时间窗药丸并成一行。 */
+  size?: 'normal' | 'compact'
 }
 
 /**
@@ -179,9 +147,11 @@ export interface ViewTabsProps {
  * @returns Tab 栏。
  */
 export function ViewTabs(props: ViewTabsProps): ReactNode {
-  const { items, active, soonHint, onSelect } = props
+  const { items, active, soonHint, onSelect, size = 'normal' } = props
+  const accent = props.accent ?? ACCENT
+  const compact = size === 'compact'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 9 : 14 }}>
       {items.map((label, index) => {
         const on = index === active
         return (
@@ -194,10 +164,10 @@ export function ViewTabs(props: ViewTabsProps): ReactNode {
             style={{
               font: 'inherit',
               fontFamily: FONT_MONO,
-              fontSize: 10,
+              fontSize: compact ? 9 : 10,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              color: on ? ACCENT : FAINT,
+              color: on ? accent : FAINT,
               background: 'transparent',
               border: 'none',
               padding: '4px 0',
@@ -215,7 +185,7 @@ export function ViewTabs(props: ViewTabsProps): ReactNode {
                   right: 0,
                   bottom: 0,
                   height: 1.5,
-                  background: ACCENT,
+                  background: accent,
                 }}
               />
             )}
@@ -234,6 +204,10 @@ export interface WindowPillsProps {
   value: string
   /** 切换回调。 */
   onSelect: (value: string) => void
+  /** 强调色，默认电光蓝。 */
+  accent?: string
+  /** 药丸尺寸：窄栏用紧凑版。 */
+  size?: 'normal' | 'compact'
 }
 
 /**
@@ -242,9 +216,11 @@ export interface WindowPillsProps {
  * @returns 药丸组。
  */
 export function WindowPills(props: WindowPillsProps): ReactNode {
-  const { items, value, onSelect } = props
+  const { items, value, onSelect, size = 'normal' } = props
+  const accent = props.accent ?? ACCENT
+  const compact = size === 'compact'
   return (
-    <div style={{ display: 'inline-flex', gap: 6 }}>
+    <div style={{ display: 'inline-flex', gap: compact ? 4 : 6 }}>
       {items.map((item) => {
         const on = item.value === value
         return (
@@ -257,13 +233,13 @@ export function WindowPills(props: WindowPillsProps): ReactNode {
             style={{
               font: 'inherit',
               fontFamily: FONT_MONO,
-              fontSize: 10,
+              fontSize: compact ? 9 : 10,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              padding: '5px 10px',
+              padding: compact ? '4px 7px' : '5px 10px',
               borderRadius: 6,
-              border: `1px solid ${on ? ACCENT : EDGE}`,
-              background: on ? ACCENT : 'transparent',
+              border: `1px solid ${on ? accent : EDGE}`,
+              background: on ? accent : 'transparent',
               color: on ? SURFACE : MUTED,
               cursor: 'pointer',
             }}
@@ -288,6 +264,8 @@ export interface KpiProps {
   subColor?: string
   /** 主数值的补充说明（悬停可见）。 */
   title?: string
+  /** 标签颜色，默认强调色；金融竖屏那一版用灰。 */
+  labelColor?: string
 }
 
 /**
@@ -296,7 +274,7 @@ export interface KpiProps {
  * @returns KPI。
  */
 export function Kpi(props: KpiProps): ReactNode {
-  const { label, value, sub, subColor = MUTED, title } = props
+  const { label, value, sub, subColor = MUTED, title, labelColor = ACCENT } = props
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
       <span
@@ -306,7 +284,7 @@ export function Kpi(props: KpiProps): ReactNode {
           fontWeight: 500,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          color: ACCENT,
+          color: labelColor,
           opacity: 0.85,
         }}
       >
@@ -333,104 +311,29 @@ export function Kpi(props: KpiProps): ReactNode {
 }
 
 /**
- * 双 KPI：命中率与花费估算，中间一条竖线隔开。
- * @param props - 左右两枚 KPI。
- * @returns KPI 对。
- */
-export function KpiPair(props: { left: KpiProps; right: KpiProps }): ReactNode {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-      <Kpi {...props.left} />
-      <div style={{ borderLeft: `1px solid ${HAIR}`, paddingLeft: 16 }}>
-        <Kpi {...props.right} />
-      </div>
-    </div>
-  )
-}
-
-/** 命令入口条的属性。 */
-export interface CommandEntryProps {
-  /** 快捷键提示（右下角）。 */
-  hint: string
-  /** 文案。 */
-  label: string
-  /** 快捷键徽标（左侧）。 */
-  badge: string
-  /** 点击时的动作。 */
-  onOpen: () => void
-}
-
-/**
- * 命令面板入口条。
- *
- * 徽标上的键帽是**这台机器上真实生效的那一枚**（来自宿主快捷键目录），
- * 点一下就切到命令面板那个 Tab。
- * @param props - 入口条的文案与动作。
- * @returns 入口条。
- */
-export function CommandEntry(props: CommandEntryProps): ReactNode {
-  const { hint, label, badge, onOpen } = props
-  return (
-    <button
-      type="button"
-      data-usage-commands=""
-      onClick={onOpen}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        width: '100%',
-        textAlign: 'left',
-        font: 'inherit',
-        padding: '8px 10px',
-        borderRadius: 8,
-        border: `1px solid ${EDGE}`,
-        background: 'rgba(255,255,255,0.02)',
-        cursor: 'pointer',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: FONT_MONO,
-          fontSize: 9,
-          padding: '3px 6px',
-          borderRadius: 4,
-          border: `1px solid ${rgba(ACCENT, 0.35)}`,
-          color: ACCENT,
-        }}
-      >
-        {badge}
-      </span>
-      <span style={{ fontSize: 12, fontWeight: 500, color: TEXT }}>{label}</span>
-      <span
-        style={{
-          marginLeft: 'auto',
-          fontFamily: FONT_MONO,
-          fontSize: 10,
-          color: FAINT,
-          letterSpacing: '0.06em',
-        }}
-      >
-        {hint}
-      </span>
-    </button>
-  )
-}
-
-/**
  * 底栏：左侧等宽状态行，右侧动作按钮。
- * @param props - 状态文案与动作区。
+ *
+ * 紧凑档给竖屏用：状态行缩到 8.5px、字距收紧，
+ * 这样「仓库名 · 同步 · 本机 · 版本号」这一整行能不被动作按钮挤掉。
+ * @param props - 状态文案、悬停提示、字号档位与动作区。
  * @returns 底栏。
  */
-export function StatusFooter(props: { status: ReactNode; actions?: ReactNode }): ReactNode {
+export function StatusFooter(props: {
+  status: ReactNode
+  actions?: ReactNode
+  title?: string
+  size?: 'normal' | 'compact'
+}): ReactNode {
+  const compact = props.size === 'compact'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 12 }}>
       <span
+        title={props.title}
         style={{
           fontFamily: FONT_MONO,
-          fontSize: 9,
+          fontSize: compact ? 8.5 : 9,
           color: FAINT,
-          letterSpacing: '0.06em',
+          letterSpacing: compact ? '0.02em' : '0.06em',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -463,16 +366,38 @@ export function BottomRule(): ReactNode {
 }
 
 /**
- * 洞察文案：左侧一条强调色竖线 + 一句话。
- * @param props - 文案。
+ * 洞察文案：一句话说明。
+ *
+ * 两种形态：
+ * - `bar`（默认）：左侧一条强调色竖线 + 文字；
+ * - `card`：扁平说明卡——深灰半透明底、极淡描边，**没有霓虹**。
+ *
+ * @param props - 文案与形态。
  * @returns 洞察块。
  */
-export function Insight(props: { children: ReactNode }): ReactNode {
+export function Insight(props: { children: ReactNode; variant?: 'bar' | 'card'; accent?: string }): ReactNode {
+  const accent = props.accent ?? ACCENT
+  if (props.variant === 'card') {
+    return (
+      <div
+        style={{
+          padding: '11px 13px',
+          borderRadius: 10,
+          background: 'rgba(255,255,255,0.028)',
+          border: `1px solid ${EDGE}`,
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
+          {props.children}
+        </p>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
       <span
         aria-hidden="true"
-        style={{ width: 2, alignSelf: 'stretch', borderRadius: 1, background: ACCENT, flex: 'none' }}
+        style={{ width: 2, alignSelf: 'stretch', borderRadius: 1, background: accent, flex: 'none' }}
       />
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: 'rgba(158,194,255,0.92)' }}>
         {props.children}

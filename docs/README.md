@@ -6,7 +6,7 @@
 |------|------|------|------|
 | **1** | [01-collect-usage-stats.md](./01-collect-usage-stats.md) | 从 DSH 可靠拿到 **每 turn** 的 token 统计（与 Web「本轮用量」同源） | ✅ `src/turn-events.ts` + `src/index.ts` |
 | 2 | [02-persist-stats.md](./02-persist-stats.md) | 累加写入 profile 下 `usage-stats.json`，按日 rollup + 30 天 prune | ✅ `src/usage-store.ts` |
-| 3 | [03-remotes-and-client.md](./03-remotes-and-client.md) | 认证路由暴露聚合；Client 右栏 Dashboard + 命令面板 | ✅ `src/host-routes.ts` + `src/client/` |
+| 3 | [03-remotes-and-client.md](./03-remotes-and-client.md) | 认证路由暴露聚合；Client 右栏用量面板 | ✅ `src/host-routes.ts` + `src/client/` |
 
 统一说明与设计取舍见 **[00-项目说明.md](./00-项目说明.md)**。
 

@@ -26,7 +26,7 @@
  * 注意：分片里那行 `require` 必须落在 factory 的作用域里，
  * esbuild 对 CJS 产物的外部动态导入正好生成裸 `require("...")`，落在 factory 参数上就对。
  */
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
@@ -37,6 +37,14 @@ const outFile = join(root, 'lib', 'client.js')
 
 /** 插件 id：必须是包名，且与 cordis.patch.yml 里的裸包名一致。 */
 const PLUGIN_ID = 'dsh-usage-cmdkit'
+
+/**
+ * 插件版本号：面板底栏要写明「这是哪一版」。
+ *
+ * 唯一事实来源是 package.json，构建时注入成常量——
+ * 源码里不写死版本，发布时也不会忘了改。
+ */
+const VERSION = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version
 
 /** 3D 环分片的文件名：必须匹配宿主约定的 `client.<名字>.js`。 */
 const CHUNK_FILE = 'client.usage3d.js'
@@ -80,7 +88,11 @@ const SHARED = {
   // 不压缩的话光 three 就是 1.2MB；压缩后回到 500KB 上下。
   minify: true,
   logLevel: 'warning',
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: {
+    'process.env.NODE_ENV': '"production"',
+    // 底栏的版本号：来自 package.json，源码里不写死。
+    __DSH_USAGE_VERSION__: JSON.stringify(VERSION),
+  },
 }
 
 /**

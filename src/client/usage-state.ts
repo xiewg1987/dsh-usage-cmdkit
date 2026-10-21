@@ -1,12 +1,13 @@
 /**
- * 浏览器半的共享状态：用量数据、时间窗、快捷键环境与导航入口。
+ * 浏览器半的共享状态：用量数据、时间窗与清空状态。
  *
- * **为什么状态要提到模块级**：命令面板是**另一个右栏 Tab**，与用量面板是两个组件
- * 实例。两边必须看到同一份数据、同一个时间窗——命令面板里「切到 30 日」要真的改到
- * 用量面板上，时间窗也要在两个 Tab 之间保持。组件里的 `useState` 做不到这件事。
+ * **为什么状态住在模块级**：右栏的 Tab 会被宿主随时卸载/重挂——
+ * 用户切到别的 Tab 再切回来，面板会重新挂载一次。
+ * 状态放在模块级单例里，数据就留在原地：
+ * 切回来时不用再读一遍，也就不会闪一下「正在读取」。
  *
  * 模块级单例是安全的：浏览器半整包在页面里只加载一次（`window.__ModuleLoader__.load`），
- * 两个 Tab 共用同一个模块实例，状态天然共享。
+ * 同一份模块实例贯穿整个页面。
  */
 import { useSyncExternalStore } from 'react'
 import type { UsageSummary } from '../protocol.js'
@@ -18,19 +19,6 @@ export type UsageRange = 'today' | 'd7' | 'd30'
 /** 面板状态：读取中 / 已有数据 / 读失败。 */
 export type UsageStatus = 'loading' | 'ready' | 'failed'
 
-/**
- * 快捷键的呈现环境。
- *
- * 取自宿主的快捷键服务：平台决定主修饰键是 ⌘ 还是 Ctrl，
- * 运行时决定要不要额外加一个 Alt（浏览器里的 Ctrl+数字 是「切标签页」）。
- */
-export interface KeyStyle {
-  /** 设备平台。 */
-  readonly platform: 'macos' | 'windows' | 'linux'
-  /** 应用外壳：浏览器里的 Web，还是桌面应用。 */
-  readonly runtime: 'web' | 'desktop'
-}
-
 /** 共享状态的一份快照。 */
 export interface UsageState {
   /** 最近一次读回的汇总。 */
@@ -41,12 +29,6 @@ export interface UsageState {
   readonly range: UsageRange
   /** 清空进行中。 */
   readonly clearing: boolean
-  /** 快捷键的呈现环境。 */
-  readonly style: KeyStyle
-  /** 唤出命令面板的全局键帽（来自宿主快捷键目录，按平台渲染）。 */
-  readonly paletteKeys: readonly string[]
-  /** 聚焦计数：+1 表示「把键盘焦点交给命令面板的输入框」。 */
-  readonly focusRequest: number
 }
 
 /** 初始状态：还没读过数据，时间窗停在 30 日。 */
@@ -55,9 +37,6 @@ const initial: UsageState = {
   status: 'loading',
   range: 'd30',
   clearing: false,
-  style: { platform: 'windows', runtime: 'web' },
-  paletteKeys: [],
-  focusRequest: 0,
 }
 
 let state: UsageState = initial
@@ -121,8 +100,7 @@ export async function loadUsage(): Promise<void> {
 /**
  * 首次挂载时读一次；已经读过就不再读。
  *
- * 两个 Tab 各自挂载时都会调它，但只有第一次真的发起请求——
- * 否则命令面板与用量面板会互相把对方正在读的那次中止掉。
+ * 面板被重挂（切 Tab 切回来）时再调它一次，但只有第一次真的发起请求。
  */
 export function ensureUsageLoaded(): void {
   if (loaded) return
@@ -149,59 +127,4 @@ export async function clearUsage(): Promise<void> {
 export function setUsageRange(range: UsageRange): void {
   if (state.range === range) return
   commit({ range })
-}
-
-/**
- * 写入快捷键的呈现环境。
- * @param style - 平台与运行时。
- */
-export function setKeyStyle(style: KeyStyle): void {
-  commit({ style })
-}
-
-/**
- * 写入全局命令面板键帽。
- *
- * 键帽来自宿主的快捷键目录——那是唯一知道「这台机器上这个键到底怎么显示」的地方，
- * 插件自己拼一份会和宿主的偏好设置对不上。
- * @param keys - 键帽数组。
- */
-export function setPaletteKeys(keys: readonly string[]): void {
-  if (keys.length === state.paletteKeys.length && keys.every((key, index) => key === state.paletteKeys[index])) return
-  commit({ paletteKeys: [...keys] })
-}
-
-/**
- * 请求命令面板把键盘焦点交给它的输入框。
- */
-export function requestPaletteFocus(): void {
-  commit({ focusRequest: state.focusRequest + 1 })
-}
-
-/** 导航回调：由插件入口注入，组件通过它切换右栏 Tab。 */
-export interface UsageNavigator {
-  /** 打开用量面板。 */
-  openUsage(): void
-  /** 打开命令面板。 */
-  openCommands(): void
-}
-
-let navigator: UsageNavigator | undefined
-
-/**
- * 注入导航回调。
- * @param next - 导航实现。
- */
-export function setUsageNavigator(next: UsageNavigator): void {
-  navigator = next
-}
-
-/** 打开用量面板；没有导航能力时什么都不做。 */
-export function openUsagePanel(): void {
-  navigator?.openUsage()
-}
-
-/** 打开命令面板。 */
-export function openCommandPanel(): void {
-  navigator?.openCommands()
 }

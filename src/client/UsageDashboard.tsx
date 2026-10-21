@@ -1,39 +1,38 @@
 /**
  * 右栏 Tab 的面板：用量 Dashboard。
  *
- * 视觉是 v4 设计稿那一套「深空遥测台」：近黑底、平视网格底纹、
- * 唯一强调色（电光蓝）、四色只出现在环段与进度条上，所有文字中性。
- * 数据仍然来自本机记录的四桶 token，窗口可选今日 / 7 日 / 30 日。
+ * 面板有**两套独立构图**，按面板实测宽度切换：
  *
- * 两种形态由面板**实测宽度**决定：
- * - 窄（不到 900px）：右栏窄态的堆叠版——环在上、双 KPI 与四行在下。
- * - 宽（900px 以上）：左环右数据的双栏版（全屏时的主形态）。
+ * - 窄（不到 900px）：**金融竖屏**那一版（`UsageCompact.tsx`）——
+ *   大数（总 tokens）→ 小环（未缓存占比）→ 一枚指标卡（缓存命中率）→ 四行分类 → 一句洞察。
+ *   近黑午夜蓝底、深灰半透明卡片，全页只两种彩色：蓝青（界面）+ 绿（涨跌）。
+ * - 宽（900px 以上）：v5 的「3D 轨道矩阵」双栏（左环右数据，全屏时的主形态）。
  *
  * 判据是量出来的宽度，不是 `useTabInfo().sidebar.fullscreen`：
  * 那个标志只说明面板盖住了整块视口，窗口窄的时候右栏反而会自动全屏，
  * 那时可用宽度更小——按标志选布局会套错构图。
  *
  * 动效见 `design/motion-spec.md` 与 `usage-motion.ts`：
- * 首次进场排一次入场编排，之后界面静止，只留环外柔光极慢呼吸；
+ * 首次进场排一次入场编排，之后界面静止；
  * 刷新走插值，不重播。
  *
  * 样式用内联 style：本插件的浏览器半是独立打包的产物，
  * 不走 harness 的 CSS Modules 管线，内联样式能免掉一整条构建依赖。
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { UsageBuckets, UsageProviderTotal } from '../protocol.js'
 import { RING_KEYS, type RingLabel } from './UsageRing.js'
 import { UsageRing3D } from './UsageRing3D.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
+import { UsageCompactView } from './UsageCompact.js'
 import {
   BrandHeader,
   BottomRule,
-  CommandEntry,
   Divider,
   Insight,
-  KpiPair,
+  Kpi,
   ProviderList,
   StatusFooter,
   UsageBackdrop,
@@ -41,7 +40,7 @@ import {
   WindowPills,
 } from './UsageChrome.js'
 import { TIMING, dropIn, riseIn } from './usage-motion.js'
-import { DEFAULT_RATES, describeRates, estimateUsd, formatCny, formatUsd, hitRate } from './usage-pricing.js'
+import { hitRate } from './usage-metrics.js'
 import {
   ACCENT,
   EDGE,
@@ -53,12 +52,11 @@ import {
   formatCount,
   percentOf,
 } from './usage-theme.js'
-import { paletteKeycap } from './usage-keys.js'
+import { PLUGIN_VERSION } from './usage-version.js'
 import {
   clearUsage,
   ensureUsageLoaded,
   loadUsage,
-  openCommandPanel,
   setUsageRange,
   useUsageState,
   type UsageRange,
@@ -81,18 +79,6 @@ interface Surface {
 /** 每个时间窗覆盖的日历日数：日均与窗口标签都用它。 */
 const RANGE_DAYS: Record<UsageRange, number> = { today: 1, d7: 7, d30: 30 }
 
-/** 窄栏形态的环尺寸上下限。 */
-const COMPACT_RING_MIN = 170
-const COMPACT_RING_MAX = 300
-
-/**
- * 窄栏里环占面板宽度的比例。
- *
- * 宿主右栏永远是全高的，所以窄栏的参照是 v4 的窄长版（360×800）：
- * 环是主角，但只占三分之二左右——留给下面的双 KPI 与四行遥测。
- */
-const COMPACT_RING_RATIO = 0.62
-
 /** 宽版左列（环 + 双 KPI）的宽度区间。 */
 const WIDE_LEFT_MIN = 300
 const WIDE_LEFT_MAX = 400
@@ -114,7 +100,6 @@ const WIDE_GAP = 48
  * 再小就不是环了——四段弧挤在一起、环心的数字也要缩到读不出来。
  * 到了这个下限还装不下，就只能滚动（内容比一屏多时这是物理事实）。
  */
-const RING_FLOOR_COMPACT = 150
 const RING_FLOOR_WIDE = 190
 
 /** 窗口更矮时，环的下限再放低一点。 */
@@ -127,16 +112,13 @@ const RING_FLOOR_TIGHT = 118
  * 只有 600 上下。矮到这个份上，行距、字号、环径下限一起收紧，
  * 才谈得上一屏装下。
  */
-const TIGHT_HEIGHT = 820
-
-/** 紧凑版里各块之间的间距。 */
-const GAP_COMPACT = 13
+const TIGHT_HEIGHT = 720
 
 /** 紧凑密度下的间距。 */
 const GAP_TIGHT = 10
 
 /** 宽版里各块之间的间距。 */
-const GAP_WIDE = 18
+const WIDE_GAP_EXTRA = 18
 
 /**
  * 进入宽版布局的宽度门槛。
@@ -176,11 +158,9 @@ function clockOf(timestamp: number): string {
  * @returns 面板内容。
  */
 export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
-  // 数据、时间窗、清空状态都住在共享 store 里：命令面板是另一个 Tab，
-  // 两边必须看到同一份数据与同一个时间窗。
-  const { summary, status, range, clearing, style, paletteKeys } = useUsageState()
+  // 数据、时间窗、清空状态都住在共享 store 里：面板被宿主重挂时数据留在原地。
+  const { summary, status, range, clearing } = useUsageState()
   const [surface, setSurface] = useState<Surface>({ width: 0, height: 0, wide: false })
-  const panel = useRef<HTMLElement | null>(null)
   /** 滚动容器：内容超高时它自己滚。 */
   const scroller = useRef<HTMLDivElement | null>(null)
   /** 内容层：高度跟着内容走，用它来量「超了多少」。 */
@@ -189,22 +169,17 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   const [squeeze, setSqueeze] = useState(0)
 
   /**
-   * 布局按面板**实测宽度**决定，不看 `sidebar.fullscreen`。
+   * 面板的测量锚点。
    *
-   * 那个标志只说明「面板盖住了整块视口」：窗口窄的时候右栏会自动全屏，
-   * 那时可用宽度反而更小。真正决定构图的是量出来的宽度。
+   * 用回调 ref 而不是对象 ref：两套构图的根节点是**不同的元素**，
+   * 换布局时 React 会先给旧节点回传 null、再给新节点回传节点。
+   * 回调 ref 正好能在换节点时重新量、重新挂观察器——
+   * 对象 ref 只会把 `current` 指向新节点，旧的观察器还盯着已经脱离文档的节点。
    */
-  const wide = surface.wide
-  const timing = wide ? TIMING.wide : TIMING.compact
-  /** 窗口矮：切紧凑密度（行距、字号、环径下限一起收紧）。 */
-  const tight = surface.height > 0 && surface.height < TIGHT_HEIGHT
-  /** 各块之间的间距：紧凑密度下更紧。 */
-  const gap = tight ? GAP_TIGHT : wide ? GAP_WIDE : GAP_COMPACT
-  /** 环能缩到的下限。 */
-  const ringFloor = tight ? RING_FLOOR_TIGHT : wide ? RING_FLOOR_WIDE : RING_FLOOR_COMPACT
-
-  useLayoutEffect(() => {
-    const node = panel.current
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const panelRef = useCallback((node: HTMLElement | null): void => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
     if (node === null) return
     const measure = (): void => {
       const width = node.clientWidth
@@ -219,7 +194,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(node)
-    return () => observer.disconnect()
+    observerRef.current = observer
   }, [])
 
   useEffect(() => { ensureUsageLoaded() }, [])
@@ -242,7 +217,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [shown],
   )
 
-  /** 四个桶的全名：遥测列表用这一份，写得完整、读得懂。 */
+  /** 四个桶的全名：宽版遥测列表用这一份，写得完整、读得懂。 */
   const names = useMemo<readonly TelemetryName[]>(
     () => [
       { key: 'uncachedInputTokens', label: t('bucket.uncachedInput') },
@@ -253,20 +228,49 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [t],
   )
 
+  /**
+   * 四个桶的短名：竖屏那一版用。
+   *
+   * 竖屏一行要放下「圆点 + 名字 + 绝对数 + 百分比」，
+   * 全名（例如「输入（未命中缓存）」）会把行撑破，短名刚好。
+   */
+  const shortNames = useMemo<readonly TelemetryName[]>(
+    () => [
+      { key: 'uncachedInputTokens', label: t('bucket.uncachedInput.short') },
+      { key: 'outputTokens', label: t('bucket.output.short') },
+      { key: 'cacheReadTokens', label: t('bucket.cacheRead.short') },
+      { key: 'cacheWriteTokens', label: t('bucket.cacheWrite.short') },
+    ],
+    [t],
+  )
+
   const windowLabel = range === 'today' ? t('window.today') : range === 'd7' ? t('window.d7') : t('window.d30')
+  const windowShort = range === 'today'
+    ? t('window.today.short')
+    : range === 'd7'
+      ? t('window.d7.short')
+      : t('window.d30.short')
   const uncachedShare = percentOf(shown.uncachedInputTokens, total)
-  /** 窄栏里的环随面板宽度缩放：宽一点就大一点，但封顶。 */
-  const baseRing = wide
-    ? Math.round(Math.max(220, Math.min(300, Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)) - 100)))
-    : Math.round(
-      Math.max(COMPACT_RING_MIN, Math.min(COMPACT_RING_MAX, surface.width * COMPACT_RING_RATIO)),
-    )
+  const rate = hitRate(shown)
+
+  const wide = surface.wide
+  /** 窗口矮：切紧凑密度（行距、字号、环径下限一起收紧）。 */
+  const tight = surface.height > 0 && surface.height < TIGHT_HEIGHT
+  /** 宽版里各块之间的间距：紧凑密度下更紧。 */
+  const gap = tight ? GAP_TIGHT : WIDE_GAP_EXTRA
+  /** 环能缩到的下限。 */
+  const ringFloor = tight ? RING_FLOOR_TIGHT : RING_FLOOR_WIDE
   /** 宽版左列的宽度：环与双 KPI 住在这一列里。 */
   const wideLeft = Math.round(
     Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)),
   )
+  /** 宽版左列的环基准直径。 */
+  const baseRing = Math.round(
+    Math.max(220, Math.min(300, Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)) - 100)),
+  )
   /** 环的最终直径：基准值再减去「一屏装不下」要压掉的量。 */
   const ringSize = Math.max(ringFloor, baseRing - squeeze)
+  const timing = TIMING.wide
 
   /**
    * 一屏装下：超出的高度由环来吸收。
@@ -303,35 +307,39 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     return () => observer.disconnect()
   }, [wide, tight, baseRing, ringFloor, range, status, summary])
 
-  // 入场编排的挂点：品牌头、视图 Tab、时间窗、双 KPI、洞察、命令入口、底栏。
+  // 入场编排的挂点：品牌头、视图 Tab、时间窗、KPI、洞察、底栏。
   const headerRef = useRef<HTMLDivElement | null>(null)
   const tabsRef = useRef<HTMLDivElement | null>(null)
   const pillsRef = useRef<HTMLDivElement | null>(null)
   const kpiRef = useRef<HTMLDivElement | null>(null)
   const insightRef = useRef<HTMLDivElement | null>(null)
-  const entryRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
 
   // 入场只播一次：之后的刷新走插值，不重播。
   const played = useRef(false)
   useEffect(() => {
-    if (played.current) return
+    if (!wide || played.current) return
     played.current = true
     dropIn(headerRef.current, timing.header)
     dropIn(tabsRef.current, timing.tabs)
     dropIn(pillsRef.current, timing.pills)
     riseIn(kpiRef.current, timing.kpi)
     riseIn(insightRef.current, timing.insight)
-    riseIn(entryRef.current, timing.entry)
     riseIn(footerRef.current, timing.footer)
-  }, [timing])
+  }, [timing, wide])
 
+  /**
+   * 底栏那两个动作按钮。
+   *
+   * 竖屏那一版用紧凑档：状态行（仓库名 · 同步 · 本机 · 版本号）必须整行放得下，
+   * 动作按钮再宽一点就会把版本号挤成省略号。
+   */
   const ghostButton = {
     font: 'inherit',
     fontFamily: FONT_MONO,
-    fontSize: 9,
+    fontSize: wide ? 9 : 8.5,
     letterSpacing: '0.08em',
-    padding: '4px 8px',
+    padding: wide ? '4px 8px' : '3px 6px',
     borderRadius: 5,
     border: `1px solid ${EDGE}`,
     background: 'transparent',
@@ -356,11 +364,53 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     </>
   )
 
+  /** 底栏状态行：仓库名 · 同步状态 · 本机状态 · 版本号。 */
+  const footerStatus = `${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')} · v${PLUGIN_VERSION}`
+
+  /**
+   * 窄栏：金融竖屏那一版。
+   *
+   * 3D 轨道矩阵是宽版的构图——在 360px 宽的竖屏上它既占地方又吵，
+   * 所以窄栏换成扁平版：大数 + 小环 + 指标卡 + 分类列表。
+   */
+  if (!wide) {
+    const notice = status === 'loading'
+      ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>
+      : status === 'failed'
+        ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>
+        : null
+    return (
+      <UsageCompactView
+        panelRef={panelRef}
+        t={t}
+        buckets={shown}
+        total={total}
+        names={shortNames}
+        windowShort={windowShort}
+        windows={[
+          { value: 'today', label: t('window.today') },
+          { value: 'd7', label: t('window.d7') },
+          { value: 'd30', label: t('window.d30') },
+        ]}
+        windowValue={range}
+        onWindow={(value) => setUsageRange(value as UsageRange)}
+        rate={rate}
+        uncachedShare={uncachedShare}
+        days={RANGE_DAYS[range]}
+        notice={notice}
+        status={footerStatus}
+        actions={actions}
+        dense={tight}
+        timing={TIMING.compact}
+      />
+    )
+  }
+
   const telemetry = (
     <UsageTelemetry
       buckets={shown}
       names={names}
-      variant={wide ? 'hero' : 'compact'}
+      variant="hero"
       dense={tight}
       timing={{ rows: timing.rows, rowStep: timing.rowStep, bars: timing.bars }}
     />
@@ -372,23 +422,13 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     text: `${percentOf(shown[key], total)}%`,
   }))
 
-  const rate = hitRate(shown)
-  const cost = estimateUsd(shown)
-  const kpiPair = (
+  const kpi = (
     <div ref={kpiRef}>
-      <KpiPair
-        left={{
-          label: t('kpi.hitRate'),
-          value: `${(rate * 100).toFixed(1)}%`,
-          sub: t('kpi.hitSub', { count: formatCount(shown.cacheReadTokens) }),
-          subColor: ACCENT,
-        }}
-        right={{
-          label: t('kpi.cost'),
-          value: `≈ ${formatUsd(cost)}`,
-          sub: t('kpi.costSub', { window: windowLabel, cny: formatCny(cost) }),
-          title: t('kpi.rates', { rates: describeRates(DEFAULT_RATES) }),
-        }}
+      <Kpi
+        label={t('kpi.hitRate')}
+        value={`${(rate * 100).toFixed(1)}%`}
+        sub={t('kpi.hitSub', { count: formatCount(shown.cacheReadTokens) })}
+        subColor={ACCENT}
       />
     </div>
   )
@@ -426,7 +466,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       captionAccent={windowLabel}
       sub={(counted) => t('ring.dailyAvg', { value: formatCompact(counted / RANGE_DAYS[range]) })}
       size={ringSize}
-      variant={wide ? 'wide' : 'compact'}
+      variant="wide"
       labels={ringLabels}
       timing={{ track: timing.track, arc: timing.arc, arcStep: timing.arcStep, number: timing.number }}
     />
@@ -435,7 +475,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   const tabs = (
     <div ref={tabsRef}>
       <ViewTabs
-        items={[t('view.overview'), t('view.cost'), t('view.top'), t('view.alerts')]}
+        items={[t('view.overview'), t('view.top'), t('view.alerts')]}
         active={0}
         soonHint={t('view.soon')}
         onSelect={() => undefined}
@@ -457,23 +497,11 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     </div>
   )
 
-  const commandEntry = (
-    <div ref={entryRef}>
-      <CommandEntry
-        badge={paletteKeycap(style, paletteKeys)}
-        label={t('entry.commands')}
-        hint={t('entry.hint')}
-        onOpen={() => { openCommandPanel() }}
-      />
-    </div>
-  )
-
   const footer = (
     <div ref={footerRef}>
       <StatusFooter
-        status={`${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')}${
-          summary === undefined ? '' : ` · ${clockOf(summary.generatedAt)}`
-        }`}
+        status={footerStatus}
+        title={summary === undefined ? undefined : clockOf(summary.generatedAt)}
         actions={actions}
       />
     </div>
@@ -482,7 +510,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   return (
     <section
       data-usage-dashboard=""
-      ref={panel}
+      ref={panelRef}
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -493,7 +521,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         color: TEXT,
         border: `1px solid ${EDGE}`,
         borderRadius: 14,
-        padding: tight ? '10px 12px 10px' : wide ? '22px 30px 24px' : '14px 16px 14px',
+        padding: '22px 30px 24px',
         fontSize: 13,
         lineHeight: 1.5,
         display: 'flex',
@@ -533,9 +561,6 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
           <BrandHeader
             title={t('brand.name')}
             usageLabel={t('brand.usage')}
-            commandsLabel={t('brand.commands')}
-            active="usage"
-            onOpenCommands={() => { openCommandPanel() }}
           />
         </div>
         <Divider />
@@ -544,9 +569,8 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
           style={{
             display: 'flex',
             alignItems: 'center',
-            // 窄栏把时间窗推到右侧；宽面板上两端对齐会把两者拉得太散，改成成组靠左。
-            justifyContent: wide ? 'flex-start' : 'space-between',
-            gap: wide ? 28 : 12,
+            justifyContent: 'flex-start',
+            gap: 28,
             flexWrap: 'wrap',
           }}
         >
@@ -558,58 +582,39 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         {status === 'failed' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>}
 
         {status === 'ready' && buckets !== undefined && (
-          wide
-            ? (
-              /* 宽版：左环右数据。命令面板那一面还没实现，右列留给用量本身。 */
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `${wideLeft}px minmax(0, 1fr)`,
-                  gap: WIDE_GAP,
-                  alignItems: 'start',
-                  width: '100%',
-                  maxWidth: WIDE_GRID_MAX,
-                  margin: '0 auto',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 24,
-                    alignItems: 'stretch',
-                  }}
-                >
-                  {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 0' }}>{ring}</div>
-                  {kpiPair}
-                  {insight}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-                  {telemetry}
-                  {providerList}
-                </div>
-              </div>
-            )
-            : (
-              /* 窄栏：环在上、双 KPI 与四行在下，读数优先。 */
-              <div style={{ display: 'flex', flexDirection: 'column', gap }}>
-                {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 36px' }}>{ring}</div>
-                <Divider />
-                {kpiPair}
-                <Divider />
-                {telemetry}
-                <Divider />
-                {insight}
-                {providerList}
-              </div>
-            )
+          /* 宽版：左环右数据。 */
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `${wideLeft}px minmax(0, 1fr)`,
+              gap: WIDE_GAP,
+              alignItems: 'start',
+              width: '100%',
+              maxWidth: WIDE_GRID_MAX,
+              margin: '0 auto',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 24,
+                alignItems: 'stretch',
+              }}
+            >
+              {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 0' }}>{ring}</div>
+              {kpi}
+              {insight}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
+              {telemetry}
+              {providerList}
+            </div>
+          </div>
         )}
 
         <div style={{ flex: 1 }} />
-        <Divider />
-        {commandEntry}
         <Divider />
         {footer}
         <BottomRule />

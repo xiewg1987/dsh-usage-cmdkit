@@ -26,7 +26,7 @@ export const EASE_LINEAR = 'linear'
  * 入场编排的时间表（毫秒）。
  *
  * 宽版（≥900px 的面板 / 全屏）走完整编排，紧凑版（右栏窄态）把步骤合并：
- * 品牌头、视图 Tab、时间窗并成一组先落，环提前到列表之前。
+ * 品牌头、视图 Tab、时间窗并成一组先落，主指标卡提前到列表之前。
  */
 export const TIMING = {
   /** 宽版：总长约 1.15s。 */
@@ -46,28 +46,22 @@ export const TIMING = {
     number: 540,
     caption: 600,
     insight: 740,
-    entry: 820,
     footer: 900,
   },
-  /** 紧凑版：总长约 1.0s。品牌头、视图 Tab、时间窗合并成一组同时落下。 */
+  /** 紧凑版（金融竖屏）：总长约 0.95s。 */
   compact: {
     frame: 0,
     header: 80,
-    tabs: 80,
-    pills: 80,
-    kpi: 240,
-    kpiStep: 40,
-    rows: 360,
-    rowStep: 45,
-    bars: 360,
-    track: 300,
-    arc: 340,
-    arcStep: 30,
-    number: 340,
-    caption: 420,
-    insight: 740,
-    entry: 820,
-    footer: 900,
+    tabs: 90,
+    pills: 90,
+    hero: 190,
+    kpi: 320,
+    kpiStep: 60,
+    rows: 420,
+    rowStep: 50,
+    bars: 420,
+    insight: 620,
+    footer: 780,
   },
 } as const
 

@@ -1,5 +1,5 @@
 /**
- * `usage` 命名空间字典（Dashboard 与命令面板的文案）。
+ * `usage` 命名空间字典（用量面板的文案）。
  *
  * zh 是键集的事实来源，en 按同一键集校验。
  * 带 `{name}` 的键是模板，调用方用 `t(key, params)` 填值。
@@ -9,11 +9,12 @@
 export const zh = {
   'tab.title': '用量',
   'tab.description': '本机记录的 token 用量',
-  'tab.commands': '命令',
-  'tab.commands.description': '用量命令面板：切换视图、时间窗与导出',
   'window.today': '今日',
   'window.d7': '7 日',
   'window.d30': '30 日',
+  'window.today.short': '今日',
+  'window.d7.short': '7 日',
+  'window.d30.short': '30 日',
   'bucket.uncachedInput': '输入（未命中缓存）',
   'bucket.output': '输出',
   'bucket.cacheRead': '缓存读取',
@@ -26,19 +27,12 @@ export const zh = {
   'ring.dailyAvg': '日均 {value}',
   'brand.name': 'DSH CmdKit',
   'brand.usage': 'Usage',
-  'brand.commands': 'Commands',
   'view.overview': '总览',
-  'view.cost': '花费',
   'view.top': 'Top',
   'view.alerts': '告警',
   'view.soon': '该视图仍在开发中',
   'kpi.hitRate': '缓存命中率',
-  'kpi.cost': '花费估算',
   'kpi.hitSub': '缓存读 {count}',
-  'kpi.costSub': '{window} · ≈ {cny}',
-  'kpi.rates': '按默认费率估算：{rates}',
-  'entry.commands': '命令面板',
-  'entry.hint': '打开',
   'insight.uncachedLow': '未缓存输入占所选窗口 {pct}——提示词复用让这一项保持低位。',
   'insight.uncachedHigh': '未缓存输入占所选窗口 {pct}——缓存命中偏低，提示词的重复读入是主要开销。',
   'provider.title': '按来源',
@@ -53,41 +47,30 @@ export const zh = {
   'state.loading': '正在读取用量…',
   'state.failed': '无法读取用量',
   'state.empty': '这段时间还没有用量记录',
-  'palette.placeholder': '搜索命令…',
-  'palette.empty': '没有匹配的命令',
-  'palette.hint': '↑↓ 选择 · Enter 执行',
-  'palette.copied': '已复制用量 JSON',
-  'palette.copyFailed': '复制失败，请手动复制',
-  'palette.exported': '已导出 CSV',
-  'palette.exportFailed': '导出失败',
-  'palette.noData': '还没有可导出的用量',
-  'cmd.group.view': '视图',
-  'cmd.group.window': '时间窗',
-  'cmd.group.data': '数据',
-  'cmd.palette': '打开命令面板',
-  'cmd.noSession': '右栏没有打开的会话',
-  'cmd.openUsage': '打开用量面板',
-  'cmd.rangeToday': '切到今日',
-  'cmd.range7': '切到 7 日',
-  'cmd.range30': '切到 30 日',
-  'cmd.copyJson': '复制用量 JSON',
-  'cmd.exportCsv': '导出用量 CSV',
-  'cmd.refresh': '刷新用量',
-  'cmd.clear': '清空统计',
 } satisfies Record<string, string>
 
 /** `usage` 命名空间的键联合。 */
 export type UsageKey = keyof typeof zh
 
+/**
+ * 翻译函数的形状。
+ *
+ * 面板组件自己不绑 locale：把 `t` 当参数传进来，
+ * 这样同一份组件既能挂在宿主里（`t` 由 locale 服务注入），
+ * 也能在设计稿预览里喂一份本地字典（见 `design/_v5_src/`）。
+ */
+export type UsageTranslate = (key: UsageKey, params?: Record<string, string>) => string
+
 /** 英文字典，按 zh 的键集校验完整性。 */
 export const en = {
   'tab.title': 'Usage',
   'tab.description': 'Token usage recorded on this machine',
-  'tab.commands': 'Commands',
-  'tab.commands.description': 'Usage command palette: views, windows, and exports',
   'window.today': 'TODAY',
   'window.d7': '7 DAYS',
   'window.d30': '30 DAYS',
+  'window.today.short': 'TODAY',
+  'window.d7.short': '7D',
+  'window.d30.short': '30D',
   'bucket.uncachedInput': 'Input (uncached)',
   'bucket.output': 'Output',
   'bucket.cacheRead': 'Cache read',
@@ -100,19 +83,12 @@ export const en = {
   'ring.dailyAvg': 'DAILY AVG {value}',
   'brand.name': 'DSH CmdKit',
   'brand.usage': 'Usage',
-  'brand.commands': 'Commands',
   'view.overview': 'OVERVIEW',
-  'view.cost': 'COST',
   'view.top': 'TOP',
   'view.alerts': 'ALERTS',
   'view.soon': 'This view is still in development',
   'kpi.hitRate': 'CACHE HIT RATE',
-  'kpi.cost': 'COST EST.',
   'kpi.hitSub': '{count} cached',
-  'kpi.costSub': '{window} · ≈ {cny}',
-  'kpi.rates': 'Estimated with default rates: {rates}',
-  'entry.commands': 'Command palette',
-  'entry.hint': 'OPEN',
   'insight.uncachedLow': 'Uncached input at {pct} of the window — prompt reuse keeps that bar low.',
   'insight.uncachedHigh': 'Uncached input at {pct} of the window — cache hits are low, so repeated reads dominate the cost.',
   'provider.title': 'BY SOURCE',
@@ -127,25 +103,4 @@ export const en = {
   'state.loading': 'Loading usage…',
   'state.failed': 'Could not load usage',
   'state.empty': 'No usage recorded for this period',
-  'palette.placeholder': 'Search commands…',
-  'palette.empty': 'No matching command',
-  'palette.hint': '↑↓ select · Enter run',
-  'palette.copied': 'Usage JSON copied',
-  'palette.copyFailed': 'Copy failed — copy it manually',
-  'palette.exported': 'CSV exported',
-  'palette.exportFailed': 'Export failed',
-  'palette.noData': 'No usage to export yet',
-  'cmd.group.view': 'VIEW',
-  'cmd.group.window': 'WINDOW',
-  'cmd.group.data': 'DATA',
-  'cmd.palette': 'Open the command palette',
-  'cmd.noSession': 'No session is open in the right sidebar',
-  'cmd.openUsage': 'Open the usage panel',
-  'cmd.rangeToday': 'Switch to today',
-  'cmd.range7': 'Switch to 7 days',
-  'cmd.range30': 'Switch to 30 days',
-  'cmd.copyJson': 'Copy usage JSON',
-  'cmd.exportCsv': 'Export usage CSV',
-  'cmd.refresh': 'Refresh usage',
-  'cmd.clear': 'Clear statistics',
 } satisfies Record<UsageKey, string>
