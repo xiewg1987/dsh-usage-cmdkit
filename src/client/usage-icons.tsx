@@ -103,20 +103,6 @@ export function IconDown(props: IconProps): ReactNode {
 }
 
 /**
- * 表盘：半环 + 指针（用在命中率那一枚）。
- * @param props - 尺寸与颜色。
- * @returns 图标。
- */
-export function IconGauge(props: IconProps): ReactNode {
-  return (
-    <Icon {...props}>
-      <path d="m12 14 4-4" />
-      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-    </Icon>
-  )
-}
-
-/**
  * 说明：圆圈里的 i（洞察卡标题前的小标）。
  * @param props - 尺寸与颜色。
  * @returns 图标。

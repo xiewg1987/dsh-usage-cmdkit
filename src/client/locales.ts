@@ -31,8 +31,6 @@ export const zh = {
   'view.top': 'Top',
   'view.alerts': '告警',
   'view.soon': '该视图仍在开发中',
-  'kpi.hitRate': '缓存命中率',
-  'kpi.hitSub': '缓存读 {count}',
   'gauge.hitRate': '缓存命中',
   'stat.today': '今日',
   'stat.d7': '近 7 日',
@@ -42,7 +40,6 @@ export const zh = {
   'insight.uncachedLow': '未缓存输入占所选窗口 {pct}——提示词复用让这一项保持低位。',
   'insight.uncachedHigh': '未缓存输入占所选窗口 {pct}——缓存命中偏低，提示词的重复读入是主要开销。',
   'provider.title': '按来源',
-  'provider.empty': '暂无数据',
   'provider.unknown': '未标注来源',
   'action.refresh': '刷新',
   'action.clear': '清空',
@@ -52,7 +49,6 @@ export const zh = {
   'footer.local': '本机正常',
   'state.loading': '正在读取用量…',
   'state.failed': '无法读取用量',
-  'state.empty': '这段时间还没有用量记录',
 } satisfies Record<string, string>
 
 /** `usage` 命名空间的键联合。 */
@@ -93,8 +89,6 @@ export const en = {
   'view.top': 'TOP',
   'view.alerts': 'ALERTS',
   'view.soon': 'This view is still in development',
-  'kpi.hitRate': 'CACHE HIT RATE',
-  'kpi.hitSub': '{count} cached',
   'gauge.hitRate': 'CACHE HIT',
   'stat.today': 'TODAY',
   'stat.d7': '7 DAYS',
@@ -104,7 +98,6 @@ export const en = {
   'insight.uncachedLow': 'Uncached input at {pct} of the window — prompt reuse keeps that bar low.',
   'insight.uncachedHigh': 'Uncached input at {pct} of the window — cache hits are low, so repeated reads dominate the cost.',
   'provider.title': 'BY SOURCE',
-  'provider.empty': 'No data yet',
   'provider.unknown': 'Unattributed source',
   'action.refresh': 'Refresh',
   'action.clear': 'Clear',
@@ -114,5 +107,4 @@ export const en = {
   'footer.local': 'local ok',
   'state.loading': 'Loading usage…',
   'state.failed': 'Could not load usage',
-  'state.empty': 'No usage recorded for this period',
 } satisfies Record<UsageKey, string>

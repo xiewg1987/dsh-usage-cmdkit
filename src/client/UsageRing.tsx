@@ -1,12 +1,11 @@
 /**
  * 用量主环：四个 token 桶各占一段的粗软进度弧，环心是总览数字。
  *
- * 画法与 Figma 的 v4 图一致：一条极淡底环 + 四段有间隙的弧，
- * 弧自带顶光玻璃渐变与外发光 bloom，环心一枚柔和能量核。
+ * 一条极淡底环 + 四段有间隙的弧，弧自带顶光玻璃渐变与外发光 bloom，
+ * 环心一枚柔和能量核。宽版（≥900px）的主视觉。
  *
  * 几何全部按像素写进 viewBox（viewBox 与像素 1:1），
- * 所以同一套代码既能渲染窄栏的小环、也能渲染宽面板的大环，
- * 而字号不随缩放失真——这是把设计稿落成产品面板的关键。
+ * 字号不随缩放失真——这是把设计稿落成产品面板的关键。
  *
  * 动效（见 `design/motion-spec.md`）：
  * - 入场时底环先亮，四段色弧按蓝→绿→紫→橙依次描边生长，环心数字同时递增。
@@ -19,29 +18,26 @@ import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT, rgba } from './usage-them
 import { EASE_LINEAR, EASE_OUT, useCountUp } from './usage-motion.js'
 import { RING_KEYS, placeRingLabels, ringSegments, type RingLabel } from './usage-ring-geometry.js'
 
-/** 环的两种形态：窄栏里的紧凑环、宽面板时的双栏大环。 */
-export type RingVariant = 'compact' | 'wide'
-
 /** 四个桶的固定顺序：与环上分段、条形、环外标签同序。 */
 export { RING_KEYS }
 
 /**
- * 形态参数：几何比例与字号。
+ * 读数排版的比例：几何按画布比例给，字号按像素给。
  *
- * 几何按画布比例给，字号按像素给；
  * 三行文字的基线间距照设计稿的比例定，
  * 所以大数字压在环心线上、两行副文案落在它下方。
  *
- * 字号是**环径的比例**而不是固定像素：窄栏的小环与宽面板的大环
- * 换算下来，文字与环的关系保持一致（设计稿就是按画布缩放排的）。
+ * 字号是**环径的比例**而不是固定像素：
+ * 环径随一屏高度变小时，文字与环的关系保持一致。
  */
-const RING_VARIANT = {
-  compact: { headline: 0.137, caption: 0.033, sub: 0.033, headlineGap: 0.004, lineGap: 0.083, subGap: 0.055 },
-  wide: { headline: 0.13, caption: 0.03, sub: 0.03, headlineGap: 0.005, lineGap: 0.08, subGap: 0.052 },
+const READOUT = {
+  headline: 0.13,
+  caption: 0.03,
+  sub: 0.03,
+  headlineGap: 0.005,
+  lineGap: 0.08,
+  subGap: 0.052,
 } as const
-
-/** 两种形态的几何参数：3D 环的读数排版也用这一份。 */
-export { RING_VARIANT }
 
 /** 弧线路径半径占画布的比例（描边居中，所以外缘落在 50%）。 */
 const RADIUS_RATIO = 0.465
@@ -52,8 +48,8 @@ const STROKE_RATIO = 0.07
 /**
  * 环外标签：每个桶一个百分比。
  *
- * 类型与挑选规则都在 `usage-ring-geometry.ts`：3D 环与 SVG 环共用，
- * 降级时构图才不会跳。
+ * 类型与挑选规则都在 `usage-ring-geometry.ts`：环与分类列表共用同一份顺序，
+ * 两边看到的桶序才不会对不上。
  */
 export type { RingLabel }
 
@@ -87,8 +83,6 @@ export interface UsageRingProps {
   sub: (counted: number) => ReactNode
   /** 渲染尺寸（正方形，px）。 */
   size: number
-  /** 形态。 */
-  variant: RingVariant
   /** 环外标签：百分比。 */
   labels?: readonly RingLabel[]
   /** 入场节拍。 */
@@ -97,22 +91,22 @@ export interface UsageRingProps {
 
 /**
  * 渲染用量主环。
- * @param props - 桶用量、环心文案、尺寸、形态、环外标签与入场节拍。
+ * @param props - 桶用量、环心文案、尺寸、环外标签与入场节拍。
  * @returns 环与环外标签。
  */
 export function UsageRing(props: UsageRingProps): ReactNode {
-  const { buckets, total, format, caption, captionAccent, sub, size, variant, labels, timing } = props
+  const { buckets, total, format, caption, captionAccent, sub, size, labels, timing } = props
   const accent = props.accent ?? ACCENT
   // useId 带冒号，做 URL 片段引用要清掉。
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const v = RING_VARIANT[variant]
+  const v = READOUT
   const center = size / 2
   const radius = size * RADIUS_RATIO
   const stroke = size * STROKE_RATIO
   const outer = radius + stroke / 2
   const circumference = 2 * Math.PI * radius
 
-  // 四段弧：从十二点方向顺时针铺开（与 3D 环共用同一份几何）。
+  // 四段弧：从十二点方向顺时针铺开（与分类列表共用同一份几何）。
   const segments = ringSegments(buckets)
 
   /**
@@ -202,14 +196,14 @@ export function UsageRing(props: UsageRingProps): ReactNode {
             <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
           </linearGradient>
           <radialGradient id={`${uid}-halo`}>
-            <stop offset="0" stopColor={ACCENT} stopOpacity={0.09} />
-            <stop offset="0.6" stopColor={ACCENT} stopOpacity={0.03} />
-            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+            <stop offset="0" stopColor={accent} stopOpacity={0.09} />
+            <stop offset="0.6" stopColor={accent} stopOpacity={0.03} />
+            <stop offset="1" stopColor={accent} stopOpacity={0} />
           </radialGradient>
           <radialGradient id={`${uid}-core`}>
             <stop offset="0" stopColor="#bfe0ff" stopOpacity={0.22} />
-            <stop offset="0.45" stopColor={ACCENT} stopOpacity={0.07} />
-            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+            <stop offset="0.45" stopColor={accent} stopOpacity={0.07} />
+            <stop offset="1" stopColor={accent} stopOpacity={0} />
           </radialGradient>
         </defs>
 

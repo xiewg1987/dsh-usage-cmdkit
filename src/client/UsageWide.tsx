@@ -1,20 +1,21 @@
 /**
- * 宽版（≥900px）面板：3D 轨道矩阵 + v6 的卡片与标签语言。
+ * 宽版（≥900px）面板：大号扁平环 + v6 的卡片与标签语言。
  *
  * 与竖屏（`UsageCompact.tsx`）是**同一套视觉语言的两块画布**，不是两代设计：
  * 读法一致（主指标 → 指标块 → 分类 → 洞察），
- * 差别只在版面的宽窄与主视觉（平面表盘 vs 3D 环）。
+ * 差别只在版面的宽窄与主视觉（小表盘 vs 大环）。
  *
  * 沿用竖屏的那几件：
  * - 控件行：`SegmentedControl`（暗底分段容器）+ 描边药丸时间窗；
- * - 主指标卡：深灰半透明卡，涨跌签 + 30 日折线（宽版的大数在 3D 环心里）；
+ * - 主指标卡：深灰半透明卡，涨跌签 + 30 日折线（宽版的大数在环心里）；
  * - 指标块行：两枚横排的 `StatTile`，中间一道发丝线；
  * - 分类列表：行内微折线 + 行间发丝线 + 灰阶百分比；
  * - 洞察卡：小标题 + 正文 + 右侧占比条；
  * - 底栏：绿点 + 版本号 + 带图标的 ghost 按钮，常驻。
  *
- * 3D 环**保留**（v6 视觉方向 §7 步骤 5：宽版仍是 3D 轨道矩阵），
- * 只是它旁边的卡片与标签换了语言。
+ * 主环是**扁平环**（`UsageRing`）：四段色弧 + 环心读数 + 环外百分比，
+ * 与窄栏右侧的命中率表盘同一套语言，只是大得多。
+ * 不做 3D：透视没法转矢量、在窄栏上又占地方，代价大于收益。
  *
  * 组件自己不绑 locale：`t` 由调用方传进来。
  * 视觉口径见 `design/v6-visual-direction.md`。
@@ -28,8 +29,7 @@ import {
   StatusFooter,
   WindowPills,
 } from './UsageChrome.js'
-import { UsageRing3D } from './UsageRing3D.js'
-import { RING_KEYS, type RingLabel } from './UsageRing.js'
+import { UsageRing, RING_KEYS, type RingLabel } from './UsageRing.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
 import { DeltaChip, SegmentedControl, Sparkline, StatTile } from './UsageMeters.js'
 import { dailySeries, dailyTotals, windowDelta } from './usage-metrics.js'
@@ -256,7 +256,7 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
   }))
 
   const ring = (
-    <UsageRing3D
+    <UsageRing
       buckets={buckets}
       total={total}
       format={formatCompact}
@@ -265,17 +265,16 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
       accent={ACCENT_CYAN}
       sub={(counted) => t('ring.dailyAvg', { value: formatCompact(counted / days) })}
       size={ringSize}
-      variant="wide"
       labels={ringLabels}
       timing={{ track: timing.track, arc: timing.arc, arcStep: timing.arcStep, number: timing.number }}
     />
   )
 
   /**
-   * 主指标卡：3D 环 + 涨跌签 + 30 日折线。
+   * 主指标卡：大号扁平环 + 涨跌签 + 30 日折线。
    *
    * 与竖屏的 hero 卡是同一套语言——一张深灰半透明卡，
-   * 里面是大数（宽版的在 3D 环心里）、涨跌签与折线。
+   * 里面是大数（宽版的在环心里）、涨跌签与折线。
    */
   const hero = (
     <div
