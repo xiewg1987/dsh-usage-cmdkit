@@ -1,6 +1,0 @@
-# 封存快照：若要对照运行，在 harness 里 --patch 本文件（平时请用仓库根 patch.dev.yml）
-
-- insert:
-    - id: notes
-      name: './src/index.ts'
-      config: {}

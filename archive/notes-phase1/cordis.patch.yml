@@ -1,8 +1,0 @@
-# 封存快照：Phase 1 profile 配置（勿当作仓库根现网 patch）
-
-- insert:
-    - id: notes
-      name: dsh-plugin
-      config:
-        defaultLimit: 3
-        maxNotes: 5
