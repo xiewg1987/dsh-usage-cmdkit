@@ -1,100 +1,32 @@
 /**
- * v4 视觉的外框件：背景底纹、品牌头、视图 Tab、时间窗药丸、双 KPI、
- * 命令入口条与底栏。
+ * v6 视觉的外框件：品牌头、时间窗药丸、洞察卡、按来源列表与底栏。
  *
  * 这些都是「壳」，不碰数据：数据仍由 `UsageDashboard` 算好后传进来。
- * 壳只负责排版与配色，配色规矩全仓库一致：
- * **唯一强调色是电光蓝，四色只出现在环段、进度条与它们的图例文字上。**
+ * 配色规矩全仓库一致：
+ * **唯一强调色是蓝青，品类色只出现在圆点、细条与它们的图例位置上。**
+ *
+ * 之前这里还有一批 v4 的旧件（网格底纹 `UsageBackdrop`、下划线 `ViewTabs`、
+ * 单枚 `Kpi`、发光 `BottomRule`、`Divider`）。宽版改成 v6 语言之后它们全都没人用了，
+ * 连带把底纹里那套「满屏网格 + 四角角标」一起退休——
+ * v6 视觉方向 §6 明确把这两样列进「不要做的」。
  *
  * 所有样式走内联 style——本插件的浏览器半是独立打包的产物，
  * 不走 harness 的 CSS Modules 管线。
  */
-import { useId, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
-  ACCENT,
+  ACCENT_CYAN,
+  CARD_EDGE,
   EDGE,
   FAINT,
   FONT_MONO,
   FONT_SANS,
-  GRID,
-  GRID_MAJOR,
-  HAIR,
   MUTED,
   POSITIVE,
-  SURFACE,
   TEXT,
   rgba,
 } from './usage-theme.js'
 import { IconInfo } from './usage-icons.js'
-
-/**
- * 一条极细的分隔线。
- *
- * 上下各收 6px：它是独立的一行，两侧各让一个完整的间距（13px×2）太贵——
- * 面板要「一屏装下」，八条分隔线光间距就吃掉一百多像素。
- * 收到 7px 上下之后，节奏也贴近设计稿（那里分隔线上下也就 7–10px）。
- */
-export function Divider(): ReactNode {
-  return (
-    <div
-      style={{ height: 1, background: HAIR, flex: 'none', marginTop: -6, marginBottom: -6 }}
-      aria-hidden="true"
-    />
-  )
-}
-
-/**
- * 背景底纹：平视网格 + 四角角标。
- *
- * 网格是**平视**的（40px 细格 + 160px 粗格），不是透视地面——
- * 平视在任何宽高比下都成立，窄栏不必为它单独降级。
- * @returns 装饰层。
- */
-export function UsageBackdrop(): ReactNode {
-  const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const corner = (top: boolean, left: boolean): ReactNode => (
-    <div
-      style={{
-        position: 'absolute',
-        top: top ? 8 : undefined,
-        bottom: top ? undefined : 8,
-        left: left ? 8 : undefined,
-        right: left ? undefined : 8,
-        width: 20,
-        height: 20,
-        borderColor: rgba(ACCENT, 0.4),
-        borderStyle: 'solid',
-        borderWidth: 0,
-        borderTopWidth: top ? 2 : 0,
-        borderBottomWidth: top ? 0 : 2,
-        borderLeftWidth: left ? 2 : 0,
-        borderRightWidth: left ? 0 : 2,
-        pointerEvents: 'none',
-      }}
-    />
-  )
-
-  return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} aria-hidden="true">
-      <svg width="100%" height="100%" style={{ display: 'block' }} preserveAspectRatio="none">
-        <defs>
-          <pattern id={`${uid}-fine`} width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M40 0V40H0" fill="none" stroke={GRID} strokeWidth="1" />
-          </pattern>
-          <pattern id={`${uid}-major`} width="160" height="160" patternUnits="userSpaceOnUse">
-            <path d="M160 0V160H0" fill="none" stroke={GRID_MAJOR} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#${uid}-fine)`} opacity="0.7" />
-        <rect width="100%" height="100%" fill={`url(#${uid}-major)`} opacity="0.85" />
-      </svg>
-      {corner(true, true)}
-      {corner(true, false)}
-      {corner(false, true)}
-      {corner(false, false)}
-    </div>
-  )
-}
 
 /** 品牌头的属性。 */
 export interface BrandHeaderProps {
@@ -102,7 +34,7 @@ export interface BrandHeaderProps {
   title: string
   /** 当前面板名（Usage）。 */
   usageLabel: string
-  /** 强调色，默认电光蓝；竖屏那一版传蓝青。 */
+  /** 强调色，默认蓝青；v6 全页只允许一种界面色。 */
   accent?: string
   /**
    * 字号档位。
@@ -123,7 +55,7 @@ export interface BrandHeaderProps {
  */
 export function BrandHeader(props: BrandHeaderProps): ReactNode {
   const { title, usageLabel, size = 'normal' } = props
-  const accent = props.accent ?? ACCENT
+  const accent = props.accent ?? ACCENT_CYAN
   const compact = size === 'compact'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -140,79 +72,6 @@ export function BrandHeader(props: BrandHeaderProps): ReactNode {
       >
         {usageLabel}
       </span>
-    </div>
-  )
-}
-
-/** 视图 Tab 的属性。 */
-export interface ViewTabsProps {
-  /** 每个 Tab 的文案。 */
-  items: readonly string[]
-  /** 当前选中的下标。 */
-  active: number
-  /** 未实现视图的悬停说明。 */
-  soonHint: string
-  /** 切换回调。 */
-  onSelect: (index: number) => void
-  /** 强调色，默认电光蓝。 */
-  accent?: string
-  /** 字号档位：竖屏那一版用紧凑档，好与时间窗药丸并成一行。 */
-  size?: 'normal' | 'compact'
-}
-
-/**
- * 视图 Tab 栏（总览 / 花费 / Top / 告警）。
- *
- * 只有总览有内容，其余三个画成禁用态——**不画一个点不动的假视图**。
- * @param props - Tab 文案、选中项与回调。
- * @returns Tab 栏。
- */
-export function ViewTabs(props: ViewTabsProps): ReactNode {
-  const { items, active, soonHint, onSelect, size = 'normal' } = props
-  const accent = props.accent ?? ACCENT
-  const compact = size === 'compact'
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 9 : 14 }}>
-      {items.map((label, index) => {
-        const on = index === active
-        return (
-          <button
-            key={label}
-            type="button"
-            disabled={!on}
-            title={on ? undefined : soonHint}
-            onClick={() => onSelect(index)}
-            style={{
-              font: 'inherit',
-              fontFamily: FONT_MONO,
-              fontSize: compact ? 9 : 10,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: on ? accent : FAINT,
-              background: 'transparent',
-              border: 'none',
-              padding: '4px 0',
-              cursor: on ? 'pointer' : 'not-allowed',
-              position: 'relative',
-            }}
-          >
-            {label}
-            {on && (
-              <span
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 1.5,
-                  background: accent,
-                }}
-              />
-            )}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -238,7 +97,7 @@ export interface WindowPillsProps {
  */
 export function WindowPills(props: WindowPillsProps): ReactNode {
   const { items, value, onSelect, size = 'normal' } = props
-  const accent = props.accent ?? ACCENT
+  const accent = props.accent ?? ACCENT_CYAN
   const compact = size === 'compact'
   return (
     <div style={{ display: 'inline-flex', gap: compact ? 4 : 6 }}>
@@ -271,64 +130,6 @@ export function WindowPills(props: WindowPillsProps): ReactNode {
           </button>
         )
       })}
-    </div>
-  )
-}
-
-/** 单枚 KPI 的属性。 */
-export interface KpiProps {
-  /** 标签（等宽大写、强调蓝）。 */
-  label: string
-  /** 主数值。 */
-  value: string
-  /** 副行。 */
-  sub?: string
-  /** 副行颜色。 */
-  subColor?: string
-  /** 主数值的补充说明（悬停可见）。 */
-  title?: string
-  /** 标签颜色，默认强调色；金融竖屏那一版用灰。 */
-  labelColor?: string
-}
-
-/**
- * 单枚 KPI：标签 + 大数值 + 副行。
- * @param props - KPI 的四段内容。
- * @returns KPI。
- */
-export function Kpi(props: KpiProps): ReactNode {
-  const { label, value, sub, subColor = MUTED, title, labelColor = ACCENT } = props
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-      <span
-        style={{
-          fontFamily: FONT_MONO,
-          fontSize: 9,
-          fontWeight: 500,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: labelColor,
-          opacity: 0.85,
-        }}
-      >
-        {label}
-      </span>
-      <span
-        title={title}
-        style={{
-          fontSize: 20,
-          fontWeight: 700,
-          color: TEXT,
-          letterSpacing: '-0.01em',
-          fontVariantNumeric: 'tabular-nums',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {value}
-      </span>
-      {sub !== undefined && (
-        <span style={{ fontSize: 11, color: subColor, whiteSpace: 'nowrap' }}>{sub}</span>
-      )}
     </div>
   )
 }
@@ -403,118 +204,83 @@ export function StatusFooter(props: {
 }
 
 /**
- * 底部那条极淡的发光规则线。
- * @returns 发光规则线。
- */
-export function BottomRule(): ReactNode {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        height: 1,
-        flex: 'none',
-        background: `linear-gradient(90deg, transparent 0%, ${rgba(ACCENT, 0.28)} 18%, ${rgba(ACCENT, 0.28)} 82%, transparent 100%)`,
-      }}
-    />
-  )
-}
-
-/**
- * 洞察文案：一句话说明。
+ * 洞察卡：一句说明，带小标题与右侧占比条。
  *
- * 两种形态：
- * - `bar`（默认）：左侧一条强调色竖线 + 文字；
- * - `card`：扁平说明卡——深灰半透明底、极淡描边，**没有霓虹**。
+ * 三层结构——小标题（ⓘ INSIGHT）+ 说明正文 + 右侧读数条，
+ * 这样一句话就不是悬在卡片里的一段浮字。
+ * 深灰半透明底、极淡描边，**没有霓虹**。
  *
- * `card` 形态还可以带一个小标题与右侧的占比条，
- * 这样一句话就不是悬在卡片里的一段浮字，而是「标题 + 说明 + 读数」三层。
- *
- * @param props - 文案与形态。
- * @returns 洞察块。
+ * @param props - 文案、小标题与占比条。
+ * @returns 洞察卡。
  */
 export function Insight(props: {
   children: ReactNode
-  variant?: 'bar' | 'card'
   accent?: string
-  /** 小标题（仅 card 形态）。 */
+  /** 小标题。 */
   title?: string
-  /** 右侧占比条（0–100，仅 card 形态）。 */
+  /** 右侧占比条（0–100）。 */
   bar?: number
   /** 占比条颜色。 */
   barColor?: string
 }): ReactNode {
-  const accent = props.accent ?? ACCENT
-  if (props.variant === 'card') {
-    const barColor = props.barColor ?? accent
-    return (
-      <div
-        style={{
-          padding: '11px 13px',
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.028)',
-          border: `1px solid ${EDGE}`,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 7,
-        }}
-      >
-        {props.title !== undefined && (
-          <span
+  const barColor = props.barColor ?? props.accent ?? ACCENT_CYAN
+  return (
+    <div
+      style={{
+        padding: '11px 13px',
+        borderRadius: 10,
+        background: 'rgba(255,255,255,0.028)',
+        border: `1px solid ${CARD_EDGE}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 7,
+      }}
+    >
+      {props.title !== undefined && (
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            fontFamily: FONT_MONO,
+            fontSize: 9,
+            fontWeight: 500,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: FAINT,
+          }}
+        >
+          <IconInfo size={11} color={FAINT} strokeWidth={2} />
+          {props.title}
+        </span>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <p style={{ margin: 0, flex: 1, fontSize: 11.5, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
+          {props.children}
+        </p>
+        {props.bar !== undefined && (
+          <div
+            aria-hidden="true"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              fontFamily: FONT_MONO,
-              fontSize: 9,
-              fontWeight: 500,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: FAINT,
+              width: 64,
+              flex: 'none',
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.07)',
+              overflow: 'hidden',
             }}
           >
-            <IconInfo size={11} color={FAINT} strokeWidth={2} />
-            {props.title}
-          </span>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <p style={{ margin: 0, flex: 1, fontSize: 11.5, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
-            {props.children}
-          </p>
-          {props.bar !== undefined && (
             <div
-              aria-hidden="true"
               style={{
-                width: 64,
-                flex: 'none',
-                height: 4,
+                width: `${Math.max(0, Math.min(100, props.bar))}%`,
+                height: '100%',
                 borderRadius: 2,
-                background: 'rgba(255,255,255,0.07)',
-                overflow: 'hidden',
+                background: barColor,
               }}
-            >
-              <div
-                style={{
-                  width: `${Math.max(0, Math.min(100, props.bar))}%`,
-                  height: '100%',
-                  borderRadius: 2,
-                  background: barColor,
-                }}
-              />
-            </div>
-          )}
-        </div>
+            />
+          </div>
+        )}
       </div>
-    )
-  }
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-      <span
-        aria-hidden="true"
-        style={{ width: 2, alignSelf: 'stretch', borderRadius: 1, background: accent, flex: 'none' }}
-      />
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: 'rgba(158,194,255,0.92)' }}>
-        {props.children}
-      </p>
     </div>
   )
 }
@@ -553,7 +319,7 @@ export function ProviderList(props: ProviderListProps): ReactNode {
             <span
               style={{
                 fontSize: 12,
-                color: MUTED,
+                color: '#cbd5e4',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

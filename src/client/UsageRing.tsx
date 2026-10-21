@@ -81,6 +81,8 @@ export interface UsageRingProps {
   caption: string
   /** 环心第一行的强调部分（如「30 日」）：没有时只显示 caption。 */
   captionAccent?: string
+  /** 环心强调部分的颜色，默认电光蓝；v6 那一版传蓝青。 */
+  accent?: string
   /** 环心第二行副文案：拿当前计数值决定内容。 */
   sub: (counted: number) => ReactNode
   /** 渲染尺寸（正方形，px）。 */
@@ -100,6 +102,7 @@ export interface UsageRingProps {
  */
 export function UsageRing(props: UsageRingProps): ReactNode {
   const { buckets, total, format, caption, captionAccent, sub, size, variant, labels, timing } = props
+  const accent = props.accent ?? ACCENT
   // useId 带冒号，做 URL 片段引用要清掉。
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
   const v = RING_VARIANT[variant]
@@ -299,7 +302,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
           {captionAccent !== undefined && (
             <>
               {' · '}
-              <tspan fill={ACCENT}>{captionAccent}</tspan>
+              <tspan fill={accent}>{captionAccent}</tspan>
             </>
           )}
         </text>

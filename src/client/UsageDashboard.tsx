@@ -3,10 +3,17 @@
  *
  * 面板有**两套独立构图**，按面板实测宽度切换：
  *
- * - 窄（不到 900px）：**金融竖屏**那一版（`UsageCompact.tsx`）——
- *   大数（总 tokens）→ 小环（未缓存占比）→ 一枚指标卡（缓存命中率）→ 四行分类 → 一句洞察。
- *   近黑午夜蓝底、深灰半透明卡片，全页只两种彩色：蓝青（界面）+ 绿（涨跌）。
- * - 宽（900px 以上）：v5 的「3D 轨道矩阵」双栏（左环右数据，全屏时的主形态）。
+ * - 窄（不到 900px）：**v6 竖屏**那一版（`UsageCompact.tsx`）——
+ *   大数（总 tokens）→ 涨跌签 + 折线 + 命中率表盘 → 两枚指标块
+ *   → 四行分类（带行内微折线）→ 洞察卡 → 状态条。
+ * - 宽（900px 以上）：**v6 宽版**（`UsageWide.tsx`）——
+ *   3D 轨道矩阵的环仍在（v6 视觉方向 §7 步骤 5），
+ *   但卡片与标签语言跟竖屏**完全统一**：同样的分段控件、描边药丸、
+ *   两枚指标块、带行内微折线的分类列表、三层洞察卡、绿点底栏。
+ *
+ * 两套构图是**同一套视觉语言的两块画布**，不是两代设计：
+ * 读法一致（先主指标，再指标块，再分类，最后洞察），
+ * 差别只在版面的宽窄与主视觉（平面表盘 vs 3D 环）。
  *
  * 判据是量出来的宽度，不是 `useTabInfo().sidebar.fullscreen`：
  * 那个标志只说明面板盖住了整块视口，窗口窄的时候右栏反而会自动全屏，
@@ -19,40 +26,19 @@
  * 样式用内联 style：本插件的浏览器半是独立打包的产物，
  * 不走 harness 的 CSS Modules 管线，内联样式能免掉一整条构建依赖。
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { UsageBuckets, UsageProviderTotal } from '../protocol.js'
-import { RING_KEYS, type RingLabel } from './UsageRing.js'
-import { UsageRing3D } from './UsageRing3D.js'
-import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
+import { RING_KEYS } from './UsageRing.js'
 import { UsageCompactView } from './UsageCompact.js'
-import {
-  BrandHeader,
-  BottomRule,
-  Divider,
-  Insight,
-  Kpi,
-  ProviderList,
-  StatusFooter,
-  UsageBackdrop,
-  ViewTabs,
-  WindowPills,
-} from './UsageChrome.js'
-import { TIMING, dropIn, riseIn } from './usage-motion.js'
+import { UsageWideView } from './UsageWide.js'
+import type { TelemetryName } from './UsageTelemetry.js'
 import { IconRefresh, IconTrash } from './usage-icons.js'
 import { hitRate } from './usage-metrics.js'
-import {
-  ACCENT,
-  EDGE,
-  FONT_MONO,
-  MUTED,
-  SURFACE,
-  TEXT,
-  formatCompact,
-  formatCount,
-  percentOf,
-} from './usage-theme.js'
+import { TIMING } from './usage-motion.js'
+import { ghostButtonStyle } from './usage-buttons.js'
+import { MUTED } from './usage-theme.js'
 import { PLUGIN_VERSION } from './usage-version.js'
 import {
   clearUsage,
@@ -80,20 +66,9 @@ interface Surface {
 /** 每个时间窗覆盖的日历日数：日均与窗口标签都用它。 */
 const RANGE_DAYS: Record<UsageRange, number> = { today: 1, d7: 7, d30: 30 }
 
-/** 宽版左列（环 + 双 KPI）的宽度区间。 */
+/** 宽版左列的宽度区间。 */
 const WIDE_LEFT_MIN = 300
 const WIDE_LEFT_MAX = 400
-
-/**
- * 宽版整体网格的最大宽度。
- *
- * 面板被拉到 1200px 以上时，数据列再宽就只是把「名字」和「数字」拉得更开，
- * 读起来反而更散。超出的部分留白居中，构图不变形。
- */
-const WIDE_GRID_MAX = 1120
-
-/** 宽版两列之间的间距。 */
-const WIDE_GAP = 48
 
 /**
  * 环能缩到的下限。
@@ -115,17 +90,11 @@ const RING_FLOOR_TIGHT = 118
  */
 const TIGHT_HEIGHT = 720
 
-/** 紧凑密度下的间距。 */
-const GAP_TIGHT = 10
-
-/** 宽版里各块之间的间距。 */
-const WIDE_GAP_EXTRA = 18
-
 /**
  * 进入宽版布局的宽度门槛。
  *
- * 宽版是「左环右数据」的双栏：环要连同外侧百分比标签一起放得下，
- * 右列还得容下双 KPI 与四行遥测，900px 是这套构图不打架的下限。
+ * 宽版是「左主指标右数据」的双栏：环要连同外侧百分比标签一起放得下，
+ * 右列还得容下指标块与四行遥测，900px 是这套构图不打架的下限。
  */
 const WIDE_MIN_WIDTH = 900
 
@@ -143,17 +112,6 @@ const EMPTY_BUCKETS: UsageBuckets = {
 }
 
 /**
- * 把时间戳切成 HH:MM:SS。
- * @param timestamp - 毫秒时间戳。
- * @returns 时分秒。
- */
-function clockOf(timestamp: number): string {
-  const date = new Date(timestamp)
-  const pad = (value: number): string => String(value).padStart(2, '0')
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
-/**
  * 渲染用量面板。
  * @param props - slot 绑定的 tab 身份与 locale 文案。
  * @returns 面板内容。
@@ -162,12 +120,6 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   // 数据、时间窗、清空状态都住在共享 store 里：面板被宿主重挂时数据留在原地。
   const { summary, status, range, clearing } = useUsageState()
   const [surface, setSurface] = useState<Surface>({ width: 0, height: 0, wide: false })
-  /** 滚动容器：内容超高时它自己滚。 */
-  const scroller = useRef<HTMLDivElement | null>(null)
-  /** 内容层：高度跟着内容走，用它来量「超了多少」。 */
-  const content = useRef<HTMLDivElement | null>(null)
-  /** 环被压小的量（px）：由一屏装不装得下决定。 */
-  const [squeeze, setSqueeze] = useState(0)
 
   /**
    * 面板的测量锚点。
@@ -218,7 +170,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [shown],
   )
 
-  /** 今日与近 7 日的总量：竖屏那两枚指标块用。 */
+  /** 今日与近 7 日的总量：那两枚指标块用。 */
   const todayTotal = useMemo<number>(
     () => (summary === undefined ? 0 : RING_KEYS.reduce((sum, key) => sum + summary.today[key], 0)),
     [summary],
@@ -261,108 +213,26 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     : range === 'd7'
       ? t('window.d7.short')
       : t('window.d30.short')
-  const uncachedShare = percentOf(shown.uncachedInputTokens, total)
+  const uncachedShare = Math.round((shown.uncachedInputTokens / (total > 0 ? total : 1)) * 100)
   const rate = hitRate(shown)
 
   const wide = surface.wide
   /** 窗口矮：切紧凑密度（行距、字号、环径下限一起收紧）。 */
   const tight = surface.height > 0 && surface.height < TIGHT_HEIGHT
-  /** 宽版里各块之间的间距：紧凑密度下更紧。 */
-  const gap = tight ? GAP_TIGHT : WIDE_GAP_EXTRA
   /** 环能缩到的下限。 */
   const ringFloor = tight ? RING_FLOOR_TIGHT : RING_FLOOR_WIDE
-  /** 宽版左列的宽度：环与双 KPI 住在这一列里。 */
-  const wideLeft = Math.round(
+  /** 宽版左列的宽度：主指标卡与洞察卡住在这一列里。 */
+  const leftWidth = Math.round(
     Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)),
   )
-  /** 宽版左列的环基准直径。 */
-  const baseRing = Math.round(
-    Math.max(220, Math.min(300, Math.max(WIDE_LEFT_MIN, Math.min(WIDE_LEFT_MAX, surface.width * 0.32)) - 100)),
-  )
-  /** 环的最终直径：基准值再减去「一屏装不下」要压掉的量。 */
-  const ringSize = Math.max(ringFloor, baseRing - squeeze)
-  const timing = TIMING.wide
-
-  /**
-   * 一屏装下：超出的高度由环来吸收。
-   *
-   * 面板是右栏，宿主给的高度随窗口变——1080p 的浏览器大约 950，
-   * 笔记本 750 上下，窄窗全屏时更少。固定高度的设计稿定不了这件事，
-   * 只能运行时量：内容比一屏高多少，就把环压小多少，压到下限为止。
-   *
-   * 只压不放：压过头了下一次量到有余量再放回去，容易来回抖。
-   * 宽度变了（换布局 / 拖窗口）时把压减值清零，重新按新宽度算基准。
-   */
-  useLayoutEffect(() => {
-    setSqueeze(0)
-  }, [baseRing])
-
-  useLayoutEffect(() => {
-    const box = scroller.current
-    const body = content.current
-    if (box === null || body === undefined || body === null) return
-    const fit = (): void => {
-      const overflow = box.scrollHeight - box.clientHeight
-      if (overflow <= 0) return
-      setSqueeze((previous) => {
-        const next = previous + Math.ceil(overflow)
-        const max = Math.max(0, baseRing - ringFloor)
-        return next > max ? max : next
-      })
-    }
-    fit()
-    if (typeof ResizeObserver === 'undefined') return
-    // 盯着内容层：它的高度变了就重新量（文字换行、数据变化、环被压小都会触发）。
-    const observer = new ResizeObserver(fit)
-    observer.observe(body)
-    return () => observer.disconnect()
-  }, [wide, tight, baseRing, ringFloor, range, status, summary])
-
-  // 入场编排的挂点：品牌头、视图 Tab、时间窗、KPI、洞察、底栏。
-  const headerRef = useRef<HTMLDivElement | null>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  const pillsRef = useRef<HTMLDivElement | null>(null)
-  const kpiRef = useRef<HTMLDivElement | null>(null)
-  const insightRef = useRef<HTMLDivElement | null>(null)
-  const footerRef = useRef<HTMLDivElement | null>(null)
-
-  // 入场只播一次：之后的刷新走插值，不重播。
-  const played = useRef(false)
-  useEffect(() => {
-    if (!wide || played.current) return
-    played.current = true
-    dropIn(headerRef.current, timing.header)
-    dropIn(tabsRef.current, timing.tabs)
-    dropIn(pillsRef.current, timing.pills)
-    riseIn(kpiRef.current, timing.kpi)
-    riseIn(insightRef.current, timing.insight)
-    riseIn(footerRef.current, timing.footer)
-  }, [timing, wide])
 
   /**
    * 底栏那两个动作按钮。
    *
-   * 竖屏那一版用紧凑档：状态行（仓库名 · 同步 · 本机 · 版本号）必须整行放得下，
-   * 动作按钮再宽一点就会把版本号挤成省略号。
-   *
    * 按钮带图标（刷新 ↻ / 清空 🗑，都是 Lucide 路径），但**不省掉文字**：
    * 「清空」是不可撤销的操作，光靠一个垃圾桶图标认不出会点到什么。
    */
-  const ghostButton = {
-    font: 'inherit',
-    fontFamily: FONT_MONO,
-    fontSize: wide ? 9 : 8.5,
-    letterSpacing: '0.08em',
-    padding: wide ? '4px 8px' : '3px 6px',
-    borderRadius: 5,
-    border: `1px solid ${EDGE}`,
-    background: 'transparent',
-    color: MUTED,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-  } as const
+  const ghostButton = ghostButtonStyle(wide)
 
   const actions = (
     <>
@@ -389,18 +259,20 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   /** 底栏版本号：单独一段。 */
   const footerVersion = `v${PLUGIN_VERSION}`
 
+  /** 读取中 / 读取失败的提示。 */
+  const notice = status === 'loading'
+    ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>
+    : status === 'failed'
+      ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>
+      : null
+
   /**
-   * 窄栏：金融竖屏那一版。
+   * 窄栏：v6 竖屏那一版。
    *
    * 3D 轨道矩阵是宽版的构图——在 360px 宽的竖屏上它既占地方又吵，
-   * 所以窄栏换成扁平版：大数 + 小环 + 指标卡 + 分类列表。
+   * 所以窄栏换成扁平版：大数 + 涨跌签 + 折线 + 表盘 + 指标块 + 分类列表。
    */
   if (!wide) {
-    const notice = status === 'loading'
-      ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>
-      : status === 'failed'
-        ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>
-        : null
     return (
       <UsageCompactView
         panelRef={panelRef}
@@ -436,221 +308,43 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     )
   }
 
-  const telemetry = (
-    <UsageTelemetry
-      buckets={shown}
-      names={names}
-      variant="hero"
-      dense={tight}
-      timing={{ rows: timing.rows, rowStep: timing.rowStep, bars: timing.bars }}
-    />
-  )
-
-  // 环外标签：v4 只画百分比，不画桶名——名字由下面的四行遥测承担。
-  const ringLabels: readonly RingLabel[] = RING_KEYS.map((key) => ({
-    key,
-    text: `${percentOf(shown[key], total)}%`,
-  }))
-
-  const kpi = (
-    <div ref={kpiRef}>
-      <Kpi
-        label={t('kpi.hitRate')}
-        value={`${(rate * 100).toFixed(1)}%`}
-        sub={t('kpi.hitSub', { count: formatCount(shown.cacheReadTokens) })}
-        subColor={ACCENT}
-      />
-    </div>
-  )
-
-  const providerList = (
-    <ProviderList
-      title={t('provider.title')}
-      items={providers.map((provider) => ({
-        key: `${provider.provider}/${provider.model}`,
-        label: provider.provider === 'unknown'
-          ? t('provider.unknown')
-          : `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`,
-        value: formatCount(RING_KEYS.reduce((sum, key) => sum + provider[key], 0)),
-      }))}
-    />
-  )
-
-  const insight = (
-    <div ref={insightRef}>
-      <Insight>
-        {/* 话跟着数据走：未缓存输入占了大头时，不能还说它「保持低位」。 */}
-        {uncachedShare > 40
-          ? t('insight.uncachedHigh', { pct: `${uncachedShare}%` })
-          : t('insight.uncachedLow', { pct: `${uncachedShare}%` })}
-      </Insight>
-    </div>
-  )
-
-  const ring = (
-    <UsageRing3D
+  /**
+   * 宽栏：v6 宽版。
+   *
+   * 3D 轨道矩阵的环保留（v6 视觉方向 §7 步骤 5：宽版仍是 3D 轨道矩阵），
+   * 但**卡片与标签语言跟竖屏完全统一**：同样的分段控件、描边药丸、
+   * 两枚指标块、带行内微折线的分类列表、三层洞察卡、绿点底栏。
+   * 读法也一致：主指标 → 指标块 → 分类 → 洞察。
+   */
+  return (
+    <UsageWideView
+      panelRef={panelRef}
+      t={t}
       buckets={shown}
       total={total}
-      format={formatCompact}
-      caption={t('total.label')}
-      captionAccent={windowLabel}
-      sub={(counted) => t('ring.dailyAvg', { value: formatCompact(counted / RANGE_DAYS[range]) })}
-      size={ringSize}
-      variant="wide"
-      labels={ringLabels}
-      timing={{ track: timing.track, arc: timing.arc, arcStep: timing.arcStep, number: timing.number }}
+      names={names}
+      windowLabel={windowLabel}
+      windows={[
+        { value: 'today', label: t('window.today') },
+        { value: 'd7', label: t('window.d7') },
+        { value: 'd30', label: t('window.d30') },
+      ]}
+      windowValue={range}
+      onWindow={(value) => setUsageRange(value as UsageRange)}
+      uncachedShare={uncachedShare}
+      days={RANGE_DAYS[range]}
+      daily={summary?.daily}
+      todayTotal={todayTotal}
+      d7Total={d7Total}
+      providers={providers}
+      notice={notice}
+      status={footerStatus}
+      version={footerVersion}
+      actions={actions}
+      dense={tight}
+      leftWidth={leftWidth}
+      ringFloor={ringFloor}
+      timing={TIMING.wide}
     />
-  )
-
-  const tabs = (
-    <div ref={tabsRef}>
-      <ViewTabs
-        items={[t('view.overview'), t('view.top'), t('view.alerts')]}
-        active={0}
-        soonHint={t('view.soon')}
-        onSelect={() => undefined}
-      />
-    </div>
-  )
-
-  const pills = (
-    <div ref={pillsRef}>
-      <WindowPills
-        items={[
-          { value: 'today', label: t('window.today') },
-          { value: 'd7', label: t('window.d7') },
-          { value: 'd30', label: t('window.d30') },
-        ]}
-        value={range}
-        onSelect={(value) => setUsageRange(value as UsageRange)}
-      />
-    </div>
-  )
-
-  const footer = (
-    <div ref={footerRef}>
-      <StatusFooter
-        status={footerStatus}
-        version={footerVersion}
-        title={summary === undefined ? undefined : clockOf(summary.generatedAt)}
-        actions={actions}
-      />
-    </div>
-  )
-
-  return (
-    <section
-      data-usage-dashboard=""
-      ref={panelRef}
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        height: '100%',
-        maxHeight: '100%',
-        background: SURFACE,
-        color: TEXT,
-        border: `1px solid ${EDGE}`,
-        borderRadius: 14,
-        padding: '22px 30px 24px',
-        fontSize: 13,
-        lineHeight: 1.5,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-      }}
-    >
-      <UsageBackdrop />
-
-      {/*
-        两层：外层是滚动容器，内层是内容。
-
-        宿主右栏的 Tab 容器是 overflow:hidden，面板再高就再也够不到底栏了，
-        所以滚动容器得由自己来当；背景网格留在 section 上，不跟着内容滚。
-        内层单独包一层，是为了量它的实际高度——那才是「内容有多高」。
-      */}
-      <div
-        ref={scroller}
-        style={{
-          position: 'relative',
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-        }}
-      >
-        <div
-          ref={content}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap,
-            minHeight: '100%',
-          }}
-        >
-        <div ref={headerRef}>
-          <BrandHeader
-            title={t('brand.name')}
-            usageLabel={t('brand.usage')}
-          />
-        </div>
-        <Divider />
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: 28,
-            flexWrap: 'wrap',
-          }}
-        >
-          {tabs}
-          {pills}
-        </div>
-
-        {status === 'loading' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>}
-        {status === 'failed' && <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>}
-
-        {status === 'ready' && buckets !== undefined && (
-          /* 宽版：左环右数据。 */
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `${wideLeft}px minmax(0, 1fr)`,
-              gap: WIDE_GAP,
-              alignItems: 'start',
-              width: '100%',
-              maxWidth: WIDE_GRID_MAX,
-              margin: '0 auto',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 24,
-                alignItems: 'stretch',
-              }}
-            >
-              {/* 上下留出环外标签的位置：标签是绝对定位，会戳出环的方框。 */}
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '18px 0' }}>{ring}</div>
-              {kpi}
-              {insight}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-              {telemetry}
-              {providerList}
-            </div>
-          </div>
-        )}
-
-        <div style={{ flex: 1 }} />
-        <Divider />
-        {footer}
-        <BottomRule />
-        </div>
-      </div>
-    </section>
   )
 }

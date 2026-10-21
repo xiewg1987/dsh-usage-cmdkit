@@ -91,7 +91,7 @@ const FIN_HEIGHT_SCALE = 0.15
 /**
  * 按画布大小定细节档位。
  *
- * 面板里环的直径在 118–300px 之间（见 UsageDashboard 的 ringSize），
+ * 面板里环的直径在 190–300px 之间（见 UsageWide 的 ringSize），
  * 同一套细节在两端都不成立：小环上鳍片会挤成噪点，大环上又太素。
  */
 interface Detail {

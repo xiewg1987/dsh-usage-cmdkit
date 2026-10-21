@@ -35,8 +35,10 @@ export const TIMING = {
     header: 80,
     tabs: 150,
     pills: 200,
+    hero: 260,
     kpi: 280,
     kpiStep: 60,
+    stats: 380,
     rows: 400,
     rowStep: 50,
     bars: 400,
@@ -109,20 +111,6 @@ export function dropIn(element: Element | null | undefined, delay: number, durat
       { opacity: 0, transform: 'translateY(-8px)' },
       { opacity: 1, transform: 'translateY(0)' },
     ],
-    { duration, delay, easing: EASE_OUT, fill: 'backwards' },
-  )
-}
-
-/**
- * 元素淡入：不动位置，只亮起来。
- * @param element - 目标元素。
- * @param delay - 延迟（毫秒）。
- * @param duration - 时长（毫秒）。
- */
-export function fadeIn(element: Element | null | undefined, delay: number, duration = 180): void {
-  if (element === null || element === undefined || !canAnimate(element)) return
-  element.animate(
-    [{ opacity: 0 }, { opacity: 1 }],
     { duration, delay, easing: EASE_OUT, fill: 'backwards' },
   )
 }

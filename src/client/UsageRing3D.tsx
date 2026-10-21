@@ -85,6 +85,7 @@ function webglSupported(): boolean {
  */
 export function UsageRing3D(props: UsageRingProps): ReactNode {
   const { buckets, total, format, caption, captionAccent, sub, size, variant, labels, timing } = props
+  const accent = props.accent ?? ACCENT
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
   /** 降级：拿不到 WebGL 或上下文丢了，就用 SVG 环。 */
   const [degraded, setDegraded] = useState(false)
@@ -263,7 +264,7 @@ export function UsageRing3D(props: UsageRingProps): ReactNode {
           {captionAccent !== undefined && (
             <>
               {' · '}
-              <span style={{ color: ACCENT }}>{captionAccent}</span>
+              <span style={{ color: accent }}>{captionAccent}</span>
             </>
           )}
         </div>

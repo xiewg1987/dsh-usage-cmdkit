@@ -46,6 +46,7 @@ import {
   percentOf,
 } from './usage-theme.js'
 import { dropIn, riseIn, useCountUp } from './usage-motion.js'
+import { dailySeries, dailyTotals, windowDelta } from './usage-metrics.js'
 import type { UsageTranslate } from './locales.js'
 
 /** 竖屏面板的入场节拍（毫秒）。 */
@@ -122,12 +123,6 @@ export interface UsageCompactProps {
   timing: CompactTiming
 }
 
-/** 一串数的平均值。 */
-function average(values: readonly number[]): number {
-  if (values.length === 0) return 0
-  return values.reduce((sum, value) => sum + value, 0) / values.length
-}
-
 /**
  * 竖屏面板的属性（内部计算用）。
  * @param props - 面板数据、文案与动作。
@@ -186,10 +181,8 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   const gap = dense ? SPACE.md : SPACE.lg
 
   // 日序列：总量折线 + 每桶自己的走势。
-  const dailyTotals = (daily ?? []).map((point) =>
-    point.uncachedInputTokens + point.outputTokens + point.cacheReadTokens + point.cacheWriteTokens,
-  )
-  const bucketSeries = names.map((name) => (daily ?? []).map((point) => point[name.key]))
+  const totals = dailyTotals(daily ?? [])
+  const bucketSeries = dailySeries(daily ?? [], names.map((name) => name.key))
 
   /**
    * 涨跌签：当前窗口的日均，跟前一个等长窗口的日均比。
@@ -197,15 +190,9 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
    * 30 日窗没有 60 天可比，就退成「后 15 天 vs 前 15 天」——
    * 比不出来的时候宁可不画，也不要画一个假箭头。
    */
-  const half = Math.floor(dailyTotals.length / 2)
+  const delta = windowDelta(daily ?? [], days)
+  const half = Math.floor(totals.length / 2)
   const span = days >= half ? half : days
-  const recent = dailyTotals.slice(-span)
-  const previous = dailyTotals.slice(-span * 2, -span)
-  const recentAvg = average(recent)
-  const previousAvg = average(previous)
-  const delta = previousAvg > 0 && recent.length > 0 && previous.length > 0
-    ? ((recentAvg - previousAvg) / previousAvg) * 100
-    : null
   const deltaLabel = days <= 1 ? t('delta.vsDay') : t('delta.vs', { days: String(span) })
 
   const hero = (
@@ -252,8 +239,8 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
           </span>
           <DeltaChip percent={delta} label={deltaLabel} />
         </div>
-        {dailyTotals.length > 1 && (
-          <Sparkline values={dailyTotals} width={dense ? 104 : 124} height={24} area />
+        {totals.length > 1 && (
+          <Sparkline values={totals} width={dense ? 104 : 124} height={24} area />
         )}
       </div>
       <MiniGauge
@@ -318,7 +305,6 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   const insight = (
     <div ref={insightRef}>
       <Insight
-        variant="card"
         title={t('insight.title')}
         bar={uncachedShare}
         barColor={uncachedShare > 40 ? ACCENT_CYAN : POSITIVE}

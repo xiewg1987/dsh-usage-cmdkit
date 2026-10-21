@@ -15,7 +15,7 @@ import { EASE_LINEAR, EASE_OUT, riseIn } from './usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
 
 /** 列表的两种排版密度：窄栏里的小字、宽面板时的大字。 */
-export type TelemetryVariant = 'compact' | 'hero' | 'flat'
+export type TelemetryVariant = 'compact' | 'hero' | 'flat' | 'wide'
 
 /** 每一桶要展示的全名（与环外标签同源）。 */
 export interface TelemetryName {
@@ -64,6 +64,10 @@ export interface UsageTelemetryProps {
  *
  * `flat` 是竖屏（金融竖屏）那一版：字更小、行距更紧，
  * 进度条改成实心细条，品类色不再发光。
+ *
+ * `wide` 是宽面板那一版：**沿用 flat 的全部视觉语言**（行内微折线、
+ * 行间发丝线、灰阶百分比、实心细条），只是字号大一号——
+ * 卡片与标签语言跟竖屏统一，宽版只是「同一套东西放大」。
  */
 const DENSITY = {
   compact: { font: 12, gap: 14, labelGap: 7 },
@@ -72,6 +76,8 @@ const DENSITY = {
   heroDense: { font: 13, gap: 12, labelGap: 6 },
   flat: { font: 11, gap: 13, labelGap: 7 },
   flatDense: { font: 10, gap: 10, labelGap: 5 },
+  wide: { font: 13, gap: 15, labelGap: 8 },
+  wideDense: { font: 12, gap: 12, labelGap: 6 },
 } as const
 
 /**
@@ -82,9 +88,21 @@ const DENSITY = {
 export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
   const { buckets, names, variant = 'compact', dense = false, timing, series } = props
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
-  const flat = variant === 'flat'
+  /**
+   * v6 的列表语言：行内微折线、行间发丝线、灰阶百分比、实心细条。
+   *
+   * `flat`（竖屏）与 `wide`（宽面板）共用它，只差字号——
+   * 卡片与标签语言统一，宽版不该是另一套排版。
+   */
+  const flat = variant === 'flat' || variant === 'wide'
   const d = dense
-    ? (variant === 'hero' ? DENSITY.heroDense : flat ? DENSITY.flatDense : DENSITY.compactDense)
+    ? (variant === 'hero'
+        ? DENSITY.heroDense
+        : variant === 'wide'
+          ? DENSITY.wideDense
+          : flat
+            ? DENSITY.flatDense
+            : DENSITY.compactDense)
     : DENSITY[variant]
 
   const rowRefs = useRef<(HTMLLIElement | null)[]>([])
