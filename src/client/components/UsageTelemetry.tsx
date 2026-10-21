@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../../protocol.js'
-import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from '../theme/usage-theme.js'
+import { BUCKET_GLASS, BUCKET_RAMP, MUTED, TEXT, formatCount, percentOf } from '../theme/usage-theme.js'
 import { Sparkline } from './UsageMeters.js'
 import { EASE_LINEAR, EASE_OUT, riseIn } from '../motion/usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
@@ -47,6 +47,14 @@ export interface UsageTelemetryProps {
   dense?: boolean
   /** 入场节拍。 */
   timing: TelemetryTiming
+  /**
+   * 品类色口径：四色玻璃（宽版）或单色梯队（竖屏）。
+   *
+   * `ramp` 把四个桶收进**同一种蓝青的四档透明度**：
+   * 四个色相并排会把四行读成四件事，同一色相才读得出「一份用量的四个切面」。
+   * 宽版的主环本来就是四色弧，列表再四色就太吵，所以宽版留着玻璃色。
+   */
+  palette?: 'glass' | 'ramp'
   /**
    * 每桶的日序列（与 `names` 同序）。
    *
@@ -87,6 +95,7 @@ const DENSITY = {
  */
 export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
   const { buckets, names, variant = 'compact', dense = false, timing, series } = props
+  const ramp = props.palette === 'ramp'
   const total = RING_KEYS.reduce((sum, key) => sum + buckets[key], 0)
   /**
    * v6 的列表语言：行内微折线、行间发丝线、灰阶百分比、实心细条。
@@ -143,6 +152,8 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
       {names.map((name, index) => {
         const value = buckets[name.key]
         const glass = BUCKET_GLASS[index]
+        /** 这一桶的颜色：梯队口径下是同一色相的不同透明度。 */
+        const tone = ramp ? BUCKET_RAMP[index] : glass.base
         const share = percentOf(value, total)
         return (
           <li
@@ -166,9 +177,9 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                     width: 6,
                     height: 6,
                     borderRadius: '50%',
-                    background: glass.base,
+                    background: tone,
                     // 竖屏那一版不发光：颜色只标注数据，不参与装饰。
-                    boxShadow: flat ? 'none' : `0 0 6px ${glass.base}99`,
+                    boxShadow: flat || ramp ? 'none' : `0 0 6px ${tone}99`,
                     flex: 'none',
                   }}
                 />
@@ -192,7 +203,7 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                     values={series[index]}
                     width={44}
                     height={12}
-                    color={glass.base}
+                    color={tone}
                     dot={0}
                     strokeWidth={1.2}
                   />
@@ -240,10 +251,10 @@ export function UsageTelemetry(props: UsageTelemetryProps): ReactNode {
                   inset: '0 auto 0 0',
                   width: `${share}%`,
                   borderRadius: flat ? 3 : 2,
-                  background: flat
-                    ? glass.base
+                  background: flat || ramp
+                    ? tone
                     : `linear-gradient(180deg, ${glass.hi} 0%, ${glass.base} 100%)`,
-                  boxShadow: flat ? 'none' : `0 0 8px ${glass.base}66`,
+                  boxShadow: flat || ramp ? 'none' : `0 0 8px ${glass.base}66`,
                   transition: `width 380ms ${EASE_OUT}`,
                 }}
               />

@@ -84,7 +84,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 |---|---|
 | ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) |
 
-> 这两张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
+> 这几张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
 > `src/client/views/UsageWide.tsx` / `src/client/views/UsageCompact.tsx` 后用 Chrome 截的），
 > 不是另画的静态稿。逐块对照表、视觉规矩与**实现偏差**见
 > [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
@@ -97,7 +97,19 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 指标卡从一枚高卡变成两枚横排，分类行加了行内微折线，洞察卡变成
 「小标题 + 说明 + 占比条」三层，底栏加了状态点。
 
-![竖屏 360×800](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png)
+这一轮把窄栏从**一屏**拆成**三屏 + 一态骨架**：顶部的
+`OVERVIEW / TOP / ALERTS` 原本只是占位（除第一个全被禁用），
+现在是真开关——总览看整体、Top 看谁花的、告警看形状不对的地方，
+读数的时候身体换成骨架。三屏换的是身体，头永远一样。
+
+| 总览 | Top | 告警 | Loading 骨架 |
+|---|---|---|---|
+| ![总览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) | ![Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-360x800.png) | ![告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-360x800.png) | ![Loading](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-loading-360x800.png) |
+
+竖屏整屏只留**一种彩色**：四个 token 桶用同一色相的四档亮度表示
+（不是四种色相并排），涨跌签、指标条、洞察条一律走界面蓝青。
+告警的数字**全是推出来的**（峰值、占比爬升、增速掉队），
+不满足阈值就不报——面板只报 token，不报钱，也不假装有事。
 
 > 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
 

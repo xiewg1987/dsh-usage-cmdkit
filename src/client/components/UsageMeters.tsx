@@ -126,7 +126,8 @@ export interface MiniGaugeProps {
  */
 export function MiniGauge(props: MiniGaugeProps): ReactNode {
   const { share, size = 72, center, caption, color = ACCENT_CYAN } = props
-  const stroke = Math.max(4, Math.round(size * 0.078))
+  // 描边随直径缩，但收在 4–6px：再粗就不是仪表盘，是一个甜甜圈。
+  const stroke = Math.max(4, Math.min(6, Math.round(size * 0.06)))
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
   const clamped = Math.max(0, Math.min(100, share))
@@ -211,7 +212,7 @@ export function DeltaChip(props: DeltaChipProps): ReactNode {
         gap: 3,
         padding: '2px 6px 2px 5px',
         borderRadius: 6,
-        background: rgba(up ? '#22c55e' : '#ef4444', 0.12),
+        background: rgba(color, 0.12),
         fontSize: 10,
         fontWeight: 600,
         color,
@@ -304,8 +305,6 @@ export interface SegmentedControlProps {
   items: readonly string[]
   /** 当前选中的下标。 */
   active: number
-  /** 未实现视图的悬停说明。 */
-  soonHint: string
   /** 切换回调。 */
   onSelect: (index: number) => void
   /** 强调色，默认界面蓝青。 */
@@ -315,13 +314,14 @@ export interface SegmentedControlProps {
 /**
  * 分段控件：暗底容器里的一排药丸。
  *
- * 选中项是容器里的一块浅色药丸（不是一条下划线）——
- * 和旁边的时间窗药丸并排放时，两套「选中语言」才不会打架。
+ * 选中项是**描边**药丸（冷青描边 + 冷青字），不是实心块——
+ * 它右边还并排放着时间窗药丸，两处都用实心填充的话，选中语言会打架。
+ * 描边 = 选中，这套语言跟时间窗药丸是同一套。
  * @param props - 分段、选中项与回调。
  * @returns 分段控件。
  */
 export function SegmentedControl(props: SegmentedControlProps): ReactNode {
-  const { items, active, soonHint, onSelect } = props
+  const { items, active, onSelect } = props
   const accent = props.accent ?? ACCENT_CYAN
   return (
     <div
@@ -340,8 +340,7 @@ export function SegmentedControl(props: SegmentedControlProps): ReactNode {
           <button
             key={label}
             type="button"
-            disabled={!on}
-            title={on ? undefined : soonHint}
+            aria-pressed={on}
             onClick={() => onSelect(index)}
             style={{
               font: 'inherit',
@@ -351,10 +350,10 @@ export function SegmentedControl(props: SegmentedControlProps): ReactNode {
               textTransform: 'uppercase',
               padding: '4px 9px',
               borderRadius: 7,
-              border: 'none',
+              border: `1px solid ${on ? accent : 'transparent'}`,
               color: on ? accent : FAINT,
-              background: on ? rgba('#38bdf8', 0.14) : 'transparent',
-              cursor: on ? 'pointer' : 'not-allowed',
+              background: 'transparent',
+              cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
           >

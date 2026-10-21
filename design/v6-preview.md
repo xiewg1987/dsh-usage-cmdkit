@@ -1,28 +1,42 @@
-# v6 预览说明 · DSH CmdKit v6（竖屏 360×800 + 宽版 1280×720）
+# v6 预览说明 · DSH CmdKit v6（竖屏 360×800 三屏 + 宽版 1280×720）
 
 ![竖屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png)
 
+![Top 屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-360x800.png)
+
+![告警屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-360x800.png)
+
+![Loading 骨架态 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-loading-360x800.png)
+
 ![宽版 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
 
-> 成图：`design/dsh-cmdkit-v6-360x800.png`（360×800，2 倍图 720×1600）与
-> `design/dsh-cmdkit-v6-1280x720.png`（1280×720，2 倍图 2560×1440）。
-> 本文件说明这两张图**是什么**、**怎么来的**、每一块对应实现的哪段代码，
+> 成图：`design/dsh-cmdkit-v6-360x800.png`（总览，360×800，2 倍图 720×1600）、
+> `design/dsh-cmdkit-v6-top-360x800.png`、`design/dsh-cmdkit-v6-alerts-360x800.png`、
+> `design/dsh-cmdkit-v6-loading-360x800.png`（Loading 骨架态），
+> 与 `design/dsh-cmdkit-v6-1280x720.png`（宽版，1280×720，2 倍图 2560×1440）。
+> 本文件说明这些图**是什么**、**怎么来的**、每一块对应实现的哪段代码，
 > 以及与 `design/v6-visual-direction.md` 的**实现偏差**。
 
-## 这两张图是真实组件渲染的
+## 这几张图是真实组件渲染的
 
 预览图不是另画的静态稿，而是把面板组件**原样挂进浏览器**截出来的：
 
 ```
-design/_v6_src/preview-360.tsx      # 竖屏入口：喂 30 日 mock 日序列 + en 字典
-design/_v6_src/preview-1280.tsx     # 宽版入口：同一份 mock，宽版组件
-design/_v6_src/mock.ts               # 两套预览共用的确定性 mock
-design/_v6_src/render-preview.mjs    # esbuild 打包 → Chrome(CDP) → 截图
+design/_v6_src/preview-shared.tsx     # 竖屏四张预览共用的挂载（数据 + 文案 + 动作）
+design/_v6_src/preview-360.tsx        # 竖屏入口：总览
+design/_v6_src/preview-360-top.tsx    # 竖屏入口：Top
+design/_v6_src/preview-360-alerts.tsx # 竖屏入口：告警
+design/_v6_src/preview-360-loading.tsx# 竖屏入口：Loading 骨架态
+design/_v6_src/preview-1280.tsx       # 宽版入口：同一份 mock，宽版组件
+design/_v6_src/mock.ts                # 几套预览共用的确定性 mock
+design/_v6_src/render-preview.mjs     # esbuild 打包 → Chrome(CDP) → 截图
 ```
 
 竖屏挂的是 `src/client/views/UsageCompact.tsx` 的 `UsageCompactView`，
 宽版挂的是 `src/client/views/UsageWide.tsx` 的 `UsageWideView`——
 **都是实现里的那一个组件**，不是另画一张图。
+竖屏四张只差「哪个视图」与「是不是在读数」，其余（数据、字典、按钮）共用一份，
+差一样就分不清预览变的是设计还是数据。
 
 渲染用 **CDP + 真实时钟**（导航后真的等 2.6 秒再截图）。
 `chrome --headless --screenshot --virtual-time-budget=…` 截的是「入场前」——
@@ -32,13 +46,21 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 
 | 变量 | 作用 | 默认 |
 |---|---|---|
-| `PREVIEW_ENTRY` | 入口：`preview-360` / `preview-1280` | `preview-360` |
+| `PREVIEW_ENTRY` | 入口：`preview-360` / `preview-360-top` / `preview-360-alerts` / `preview-360-loading` / `preview-1280` | `preview-360` |
 | `PREVIEW_W` / `PREVIEW_H` | 画布尺寸（试矮侧栏用 `PREVIEW_H=700`） | 按入口（360×800 / 1280×720） |
 | `PREVIEW_SCALE` | 截图倍率 | 2 |
 | `PREVIEW_OUT` | 输出路径 | 按入口（`dsh-cmdkit-v6-<tag>.png`） |
 | `PREVIEW_DEV=1` | 用 React 开发版渲染（报错带组件栈） | 关 |
 | `PREVIEW_DUMP=1` | 导出**真实渲染出来的几何**到 `design/_v6_src/layout-<tag>.json` | 关 |
 | `PREVIEW_SVG=1` | 导出页面里真正画出的 **SVG**（折线 / 表盘 / 图标）到 `design/_v6_src/svg-<tag>/` | 关 |
+
+出另外三张竖屏图：
+
+```bash
+$env:PREVIEW_ENTRY='preview-360-top';    $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-360x800.png';     node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-360-alerts'; $env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-360x800.png';  node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-loading-360x800.png'; node design/_v6_src/render-preview.mjs
+```
 
 > `design/_v6_src/` 是本地工作区（不进版本库），与 `design/_v4_src/` 同理。
 
@@ -73,18 +95,42 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 
 # 竖屏（360×800）
 
-## 版面构成（从上到下）
+## 三屏 + 一态骨架
+
+竖屏不是一个页面，是**三屏**（总览 / Top / 告警）外加**一态骨架**（读数中）。
+三屏换的是身体，头（`UsageHeader`）永远一样：
+
+```
+UsageHeader = 品牌行 + 发丝线 + 控件行（视图分段 + 时间窗药丸）
+  ├─ overview  总览   大数 + 命中率环 → 指标块 → 四行遥测 → 洞察
+  ├─ top       Top    头部份额环 + 三枚指标块 → BY MODEL → BY PROVIDER
+  └─ alerts    告警   条数与分级 → 最近清单 → 每日总量趋势
+loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
+```
+
+| 屏 | 关键读数 | 实现位置 |
+|---|---|---|
+| 总览 | `742.6K` + 命中率环 36.5% + TODAY/7 DAYS + 四行遥测 + 洞察 | `UsageCompact.tsx` |
+| Top | `TOP SHARE 53.9%`（头部模型占窗口总量）+ PER MODEL / PEAK DAY / CACHE HIT + 模型与来源排行 | `UsageTopView.tsx` |
+| 告警 | 条数与 HIGH/MED/LOW 分级 + 每条告警的说明与量级条 + 每日总量趋势卡 | `UsageAlertsView.tsx` |
+| 骨架 | 块（白 5%）与条（白 15%）的轮廓，随视图变形态 | `UsageSkeleton.tsx` |
+
+告警的**数字全是推出来的**（`usage-alerts.ts`）：峰值日与日均的比、
+各桶 7 日涨幅、输出增速与总量的差。阈值集中在 `THRESHOLD`，
+不满足就不报——「这段时间没有异常用量」是合法结论。
+
+## 版面构成（从上到下，总览屏）
 
 | 区块 | 内容 | 实现位置 |
 |---|---|---|
 | 品牌头 | `DSH CmdKit`（左 16px 700）+ `Usage`（右 9px 灰字） | `UsageChrome.tsx` `BrandHeader`（`size="compact"`） |
-| 分隔线 | 发丝线 `rgba(255,255,255,.07)` | `UsageCompact.tsx` |
-| 控件行 | `SegmentedControl`（暗底容器 + 选中浅药丸）+ 时间窗描边药丸（右对齐） | `UsageMeters.tsx` `SegmentedControl` / `UsageChrome.tsx` `WindowPills` |
-| 主指标卡 | `742.6K` 42px + `TOKENS · 30D` + **涨跌签** `22.7% vs prev 15d` + **主折线** 124×24；右侧 **命中率表盘** 72px | `UsageCompact.tsx` + `UsageMeters.tsx` `Sparkline` / `MiniGauge` / `DeltaChip` |
+| 分隔线 | 发丝线 `rgba(255,255,255,.07)` | `UsageHeader.tsx` |
+| 控件行 | `SegmentedControl`（暗底容器 + 选中**描边**药丸）+ 时间窗描边药丸（右对齐） | `UsageMeters.tsx` `SegmentedControl` / `UsageChrome.tsx` `WindowPills` |
+| 主指标卡 | `742.6K` 42px + `TOKENS · 30D` + **涨跌签** `22.7% vs prev 15d` + **主折线** 124×24；右侧 **命中率表盘** 104px | `UsageCompact.tsx` + `UsageMeters.tsx` `Sparkline` / `MiniGauge` / `DeltaChip` |
 | 指标块行 | 一张卡里两枚横排：`TODAY 28.6K` / `7 DAYS 201.8K`，中间一道发丝线，各自一条 4px 微条 | `UsageMeters.tsx` `StatTile` |
-| 分类列表 | 四行 × 44：圆点 + 名称 + **行内微折线 44×12** + 绝对数 + 灰阶百分比 + 5px 细条；**行间发丝线** | `UsageTelemetry.tsx`（`variant="flat"`，`series` prop） |
-| 洞察卡 | `ⓘ INSIGHT` 小标题 + 两行正文 + 右侧 64px 占比条 | `UsageChrome.tsx` `Insight variant="card"`（新增 `title` / `bar`） |
-| 状态条 | 绿点 + `synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（各带一枚 11px Lucide 图标，sticky 常驻） | `UsageChrome.tsx` `StatusFooter`（新增 `dot` / `version`） |
+| 分类列表 | 四行 × 44：圆点 + 名称 + **行内微折线 44×12** + 绝对数 + 灰阶百分比 + 5px 细条；**行间发丝线** | `UsageTelemetry.tsx`（`variant="flat"`，`palette="ramp"`，`series` prop） |
+| 洞察卡 | `💡 INSIGHT` 小标题 + 两行正文 + 右侧 64px 占比条 | `UsageChrome.tsx` `Insight`（`title` / `bar`） |
+| 状态条 | 绿点 + `synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（各带一枚 11px Lucide 图标，sticky 常驻） | `UsageChrome.tsx` `StatusFooter`（`dot` / `version`） |
 
 ## 数据口径：折线与涨跌签从哪来
 
@@ -101,14 +147,20 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 ## 视觉规矩
 
 - **底色** `#070a12`（近黑的午夜蓝），**没有网格、没有角标、没有霓虹**。
-- **强调色上限 2**：界面蓝青 `#38bdf8` + 涨跌绿 `#22c55e`（跌为 `#ef4444`，只在真有负值时出现）。
-- **品类色**（蓝 / 绿 / 紫 / 橙）只出现在**圆点与细条**上，百分比一律灰阶。
+- **竖屏整屏一种彩色**：界面蓝青 `#38bdf8`；四个桶用**同一色相的四档亮度**
+  （`BUCKET_RAMP`），涨跌签 / 指标条 / 洞察条也走蓝青。
+  宽版另算：主环是四段桶色弧，列表用四色玻璃（`palette="glass"`）。
+- **品类色只标注数据，不参与排版**：圆点、微折线、细条同一色，百分比一律灰阶。
+- **选中 = 描边**：视图分段与时间窗药丸都用描边，容器暗底。
 - **图标取 Lucide**（ISC），路径原样搬进 `src/client/components/usage-icons.tsx`，
   Figma 里用同一份 SVG 导入——不手画、不加 npm 依赖。
   底栏两枚按钮也带图标（`refresh-cw` / `trash-2`，11px），
   但**不省掉文字**：清空是不可撤销的操作，光一个垃圾桶认不出会点到什么。
   图标让底栏按钮从 51.5 / 40.8px 宽涨到 66.5 / 55.8px（+15 = 图标 11 + 间隙 4），
   整组仍右对齐到 343px（面板右缘），左边界从 244.7 退到 214.7。
+- **骨架两档灰度**：块白 5% / 条白 15%。
+  条必须比块亮一档——骨架的信息量全在「条在不在」上；
+  同亮度时整屏糊成灰板，缩略图上读不出「在加载」。
 - **留白集中在下半段**：内容一屏装下（`contentHeight === clientHeight === 768`），
   洞察卡与底栏之间是刻意留的空。
 - **底栏 sticky**：面板比视口高时状态条仍贴在可视区底部
@@ -124,6 +176,11 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 | 品牌头右侧 `Usage` 9px 灰字 | 9px 灰字 | 蓝青让给选中态与进度环。 |
 | 底栏 `dsh-usage-cmdkit · synced · local ok` + 版本号 | 窄栏**不重复包名**：`synced · local ok · v0.1.0` | 品牌头已经写着「DSH CmdKit」，再写一遍包名会把版本号挤成省略号。宽面板仍带包名。 |
 | 方案合计 ≈660px + 间距，余 ~90px | 实际余 ≈45px | 控件行从「32」变「一行 29.5」省下的空间，被洞察卡（72→81）与四行发丝线带吃掉。**一屏仍然装得下**，留白略少于方案设想。 |
+| 一屏（总览） | **三屏 + 一态骨架** | 顶部分段控件原本是占位（除第一个全被 `disabled`）。这一轮把它接上真开关，另做 Top 与告警两屏；读数时身体换成骨架。 |
+| 品类色：四色（蓝/绿/紫/橙） | 竖屏**单色梯队**（同一色相四档亮度） | 四种色相并排会把四行读成四件事，它们其实是同一份用量的四个切面。宽版列表仍是四色玻璃——它的主环本来就是四段桶色弧。 |
+| 命中率表盘 72px | **104px** | 表盘是竖屏唯一表达「别处没有的量」的地方（命中率），小到 72 读起来只是个装饰圈。104 占内容区 35%，落在 28–36% 的区间里。 |
+| 洞察卡图标 ⓘ | **灯泡**（Lucide `lightbulb`） | 洞察说的是「这件事说明了什么」，ⓘ 只能表示「这里有说明」。 |
+| 涨跌签用涨跌绿/红 | 竖屏走**界面蓝青** | 竖屏整屏只留一种彩色；方向仍由箭头与正负号说明。宽版不动（涨跌绿/红仍在）。 |
 
 ---
 

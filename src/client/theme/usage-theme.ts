@@ -107,6 +107,30 @@ export const BUCKET_GLASS = [
   { hi: '#f9a72e', base: '#f59e0b', lo: '#ee980a' },
 ] as const
 
+/**
+ * 竖屏版的品类色梯队：**一种蓝青，四档透明度**。
+ *
+ * 四个 token 桶并排出现时，四种色相（蓝/绿/紫/橙）会让四行读成四件事；
+ * 同一色相的四档透明度则读起来是一组——它们是同一份用量的四个切面。
+ * 竖屏那一版用这套梯队，宽版主环仍保留四色弧（环段是另一回事，见视觉方向 §9.5）。
+ */
+export const BUCKET_RAMP = ['#38bdf8', '#38bdf8c7', '#38bdf894', '#38bdf86b'] as const
+
+/**
+ * Loading 骨架块的底色：白 5%。
+ *
+ * 白 4% 太贴着底色，缩略图与低亮度屏幕上整块糊成黑板——
+ * 骨架态最该有的「有东西正在加载」的暗示反而没了。5% 能立住，又不抢戏。
+ */
+export const SKELETON_BLOCK = 'rgba(255,255,255,0.05)'
+
+/**
+ * Loading 骨架条：白 15%。
+ *
+ * 比块亮一档：骨架里真正在动的暗示是**条**，不是块。
+ */
+export const SKELETON_BAR = 'rgba(255,255,255,0.15)'
+
 /** 正文无衬线字体栈：与设计稿同款 Inter 优先，缺字时退回系统无衬线。 */
 export const FONT_SANS = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 

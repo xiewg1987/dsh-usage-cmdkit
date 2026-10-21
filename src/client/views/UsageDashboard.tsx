@@ -33,6 +33,10 @@ import type { UsageBuckets, UsageProviderTotal } from '../../protocol.js'
 import { RING_KEYS } from '../components/UsageRing.js'
 import { UsageCompactView } from './UsageCompact.js'
 import { UsageWideView } from './UsageWide.js'
+import { UsageTopView } from './UsageTopView.js'
+import { UsageAlertsView } from './UsageAlertsView.js'
+import type { UsageView } from '../components/UsageHeader.js'
+import { deriveAlerts } from '../data/usage-alerts.js'
 import type { TelemetryName } from '../components/UsageTelemetry.js'
 import { IconRefresh, IconTrash } from '../components/usage-icons.js'
 import { hitRate } from '../data/usage-metrics.js'
@@ -120,6 +124,13 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   // 数据、时间窗、清空状态都住在共享 store 里：面板被宿主重挂时数据留在原地。
   const { summary, status, range, clearing } = useUsageState()
   const [surface, setSurface] = useState<Surface>({ width: 0, height: 0, wide: false })
+  /**
+   * 当前视图：总览 / Top / 告警。
+   *
+   * 放在面板这一层而不是各自视图里：竖屏与宽版共用同一个视图状态，
+   * 面板在两种构图之间换（宽度跨过 900px）时，用户看的还是同一屏。
+   */
+  const [view, setView] = useState<UsageView>('overview')
 
   /**
    * 面板的测量锚点。
@@ -296,6 +307,10 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         daily={summary?.daily}
         todayTotal={todayTotal}
         d7Total={d7Total}
+        providers={providers}
+        view={view}
+        onView={setView}
+        loading={status === 'loading'}
         notice={notice}
         // 窄栏底栏不重复包名：品牌头已经写着「DSH CmdKit」，
         // 这里再写一遍「dsh-usage-cmdkit」只会把版本号挤掉。
@@ -337,6 +352,9 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       todayTotal={todayTotal}
       d7Total={d7Total}
       providers={providers}
+      view={view}
+      onView={setView}
+      windowShort={windowShort}
       notice={notice}
       status={footerStatus}
       version={footerVersion}

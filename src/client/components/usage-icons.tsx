@@ -103,16 +103,18 @@ export function IconDown(props: IconProps): ReactNode {
 }
 
 /**
- * 说明：圆圈里的 i（洞察卡标题前的小标）。
+ * 洞察：灯泡（洞察卡标题前的小标）。
+ *
+ * 洞察说的是「这件事说明了什么」，灯泡比圆圈里的 i 更贴近这个意思。
  * @param props - 尺寸与颜色。
  * @returns 图标。
  */
-export function IconInfo(props: IconProps): ReactNode {
+export function IconBulb(props: IconProps): ReactNode {
   return (
     <Icon {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 16v-4" />
-      <path d="M12 8h.01" />
+      <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
     </Icon>
   )
 }

@@ -26,7 +26,7 @@ import {
   TEXT,
   rgba,
 } from '../theme/usage-theme.js'
-import { IconInfo } from './usage-icons.js'
+import { IconBulb } from './usage-icons.js'
 
 /** 品牌头的属性。 */
 export interface BrandHeaderProps {
@@ -206,7 +206,7 @@ export function StatusFooter(props: {
 /**
  * 洞察卡：一句说明，带小标题与右侧占比条。
  *
- * 三层结构——小标题（ⓘ INSIGHT）+ 说明正文 + 右侧读数条，
+ * 三层结构——小标题（灯泡 INSIGHT）+ 说明正文 + 右侧读数条，
  * 这样一句话就不是悬在卡片里的一段浮字。
  * 深灰半透明底、极淡描边，**没有霓虹**。
  *
@@ -250,7 +250,7 @@ export function Insight(props: {
             color: FAINT,
           }}
         >
-          <IconInfo size={11} color={FAINT} strokeWidth={2} />
+          <IconBulb size={11} color={FAINT} strokeWidth={2} />
           {props.title}
         </span>
       )}

@@ -1,5 +1,5 @@
 /**
- * 竖屏（窄栏）面板：金融竖屏那一版视觉。
+ * 竖屏（窄栏）面板：v6 视觉 + 三屏切换。
  *
  * 与宽版（≥900px 的双栏 + 大号扁平环）是**两套独立构图**，不是同一套的缩放。
  * 竖屏这一版按「夜里看盘」的竖屏应用重排，节奏是**上密下疏**：
@@ -7,29 +7,37 @@
  *   品牌头 → 控件行 → 主指标（大数 + 涨跌签 + 折线 + 表盘）
  *          → 两枚指标块 → 四行分类（带行内微折线）→ 一句洞察 → 状态条
  *
- * 视觉规矩（全页只允许两种彩色）：
+ * 顶部分成**三屏**，共用同一个头（`UsageHeader`）：
+ *
+ * - `overview` 总览：上面这套版面；
+ * - `top` Top：谁把 token 花了（头部模型的份额环 + 模型/来源排行）；
+ * - `alerts` 告警：这段时间里形状不对的地方（告警清单 + 每日总量趋势）。
+ *
+ * 三屏换的是身体，头永远一样——用户来回切的时候头不该跳一下。
+ *
+ * 视觉规矩（全页只允许一种彩色）：
  * - 底色近黑的午夜蓝，卡片是深灰半透明圆角，**没有霓虹描边、没有网格**；
- * - 界面色只有蓝青一种（选中态、进度环、标签）；
+ * - 界面色只有蓝青一种：四个 token 桶用**同一色相的四档亮度**表示，
+ *   不再是四种色相并排——四行是同一份用量的四个切面，不是四件事；
  * - 品类色退回到「一颗小圆点 + 一条 5px 细进度条 + 一段行内微折线」，不发光、不画柱；
  * - 数值白、标签灰，其余一律灰阶。
  *
  * 组件自己不绑 locale：`t` 由调用方传进来。
  * 这样同一份代码既挂在宿主里（locale 服务注入 `t`），
- * 也能在设计稿预览里喂一份本地字典（`design/_v5_src/`）——
+ * 也能在设计稿预览里喂一份本地字典（`design/_v6_src/`）——
  * **预览图渲染的就是这份实现本身**，不是另画一张。
  *
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
-import { useEffect, useRef, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint } from '../../protocol.js'
-import {
-  BrandHeader,
-  Insight,
-  StatusFooter,
-  WindowPills,
-} from '../components/UsageChrome.js'
+import { useEffect, useMemo, useRef, type ReactNode, type Ref } from 'react'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
+import { Insight, StatusFooter } from '../components/UsageChrome.js'
+import { UsageHeader, USAGE_VIEWS, type UsageView } from '../components/UsageHeader.js'
+import { UsageSkeleton } from '../components/UsageSkeleton.js'
 import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry.js'
-import { DeltaChip, MiniGauge, SegmentedControl, Sparkline, StatTile } from '../components/UsageMeters.js'
+import { DeltaChip, MiniGauge, Sparkline, StatTile } from '../components/UsageMeters.js'
+import { deriveAlerts } from '../data/usage-alerts.js'
+import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -38,7 +46,6 @@ import {
   FONT_MONO,
   HAIRLINE,
   PANEL_BG,
-  POSITIVE,
   RADIUS,
   SPACE,
   TEXT,
@@ -46,8 +53,9 @@ import {
   percentOf,
 } from '../theme/usage-theme.js'
 import { dropIn, riseIn, useCountUp } from '../motion/usage-motion.js'
-import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
-import type { UsageTranslate } from '../i18n/locales.js'
+import type { UsageTranslate, UsageKey } from '../i18n/locales.js'
+import { UsageAlertsView } from './UsageAlertsView.js'
+import { UsageTopView } from './UsageTopView.js'
 
 /** 竖屏面板的入场节拍（毫秒）。 */
 export interface CompactTiming {
@@ -109,7 +117,15 @@ export interface UsageCompactProps {
   todayTotal: number
   /** 近 7 日总量（指标块用）。 */
   d7Total: number
-  /** 状态提示（读取中 / 读取失败）；没有就传 null。 */
+  /** 按 provider/model 的拆分（Top 屏用）。 */
+  providers: readonly UsageProviderTotal[]
+  /** 当前视图。 */
+  view: UsageView
+  /** 切视图。 */
+  onView: (view: UsageView) => void
+  /** 正在读数据：身体换成骨架。 */
+  loading: boolean
+  /** 状态提示（读取失败）；没有就传 null。 */
   notice?: ReactNode
   /** 底栏状态行。 */
   status: string
@@ -121,6 +137,13 @@ export interface UsageCompactProps {
   dense: boolean
   /** 入场节拍。 */
   timing: CompactTiming
+}
+
+/** 视图 → 文案键。 */
+const VIEW_LABELS: Record<UsageView, UsageKey> = {
+  overview: 'view.overview',
+  top: 'view.top',
+  alerts: 'view.alerts',
 }
 
 /**
@@ -145,6 +168,10 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     daily,
     todayTotal,
     d7Total,
+    providers,
+    view,
+    onView,
+    loading,
     notice,
     status,
     version,
@@ -155,8 +182,6 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
 
   const scroller = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  const pillsRef = useRef<HTMLDivElement | null>(null)
   const heroRef = useRef<HTMLDivElement | null>(null)
   const statsRef = useRef<HTMLDivElement | null>(null)
   const insightRef = useRef<HTMLDivElement | null>(null)
@@ -168,8 +193,6 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     if (played.current) return
     played.current = true
     dropIn(headerRef.current, timing.header)
-    dropIn(tabsRef.current, timing.tabs)
-    dropIn(pillsRef.current, timing.pills)
     riseIn(heroRef.current, timing.hero, 220)
     riseIn(statsRef.current, timing.stats, 200)
     riseIn(insightRef.current, timing.insight, 200)
@@ -194,6 +217,12 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   const half = Math.floor(totals.length / 2)
   const span = days >= half ? half : days
   const deltaLabel = days <= 1 ? t('delta.vsDay') : t('delta.vs', { days: String(span) })
+
+  /** 告警：从日序列与四桶用量里推出来的。 */
+  const alerts = useMemo(
+    () => deriveAlerts({ daily: daily ?? [], buckets, total }),
+    [daily, buckets, total],
+  )
 
   const hero = (
     <div
@@ -237,7 +266,8 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
           >
             {formatCompact(counted)}
           </span>
-          <DeltaChip percent={delta} label={deltaLabel} />
+          {/* 竖屏这一版只有一种彩色：涨跌签也走界面蓝青，箭头仍说明方向。 */}
+          <DeltaChip percent={delta} label={deltaLabel} positive={ACCENT_CYAN} negative={ACCENT_CYAN} />
         </div>
         {totals.length > 1 && (
           <Sparkline values={totals} width={dense ? 104 : 124} height={24} area />
@@ -245,7 +275,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       </div>
       <MiniGauge
         share={Math.round(rate * 100)}
-        size={dense ? 60 : 72}
+        size={104}
         center={`${(rate * 100).toFixed(1)}%`}
         caption={t('gauge.hitRate')}
       />
@@ -276,7 +306,6 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
         label={t('stat.d7')}
         value={formatCompact(d7Total)}
         share={total > 0 ? percentOf(d7Total, total) : 0}
-        color={POSITIVE}
       />
     </div>
   )
@@ -294,6 +323,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
         buckets={buckets}
         names={names}
         variant="flat"
+        palette="ramp"
         dense={dense}
         series={bucketSeries}
         timing={{ rows: timing.rows, rowStep: timing.rowStep, bars: timing.bars }}
@@ -307,13 +337,43 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       <Insight
         title={t('insight.title')}
         bar={uncachedShare}
-        barColor={uncachedShare > 40 ? ACCENT_CYAN : POSITIVE}
+        barColor={ACCENT_CYAN}
       >
         {uncachedShare > 40
           ? t('insight.uncachedHigh', { pct: `${uncachedShare}%` })
           : t('insight.uncachedLow', { pct: `${uncachedShare}%` })}
       </Insight>
     </div>
+  )
+
+  /** 身体：按视图换，读数的时候换成骨架。 */
+  const body = loading ? (
+    <UsageSkeleton variant={view} />
+  ) : view === 'top' ? (
+    <UsageTopView
+      t={t}
+      total={total}
+      providers={providers}
+      rate={rate}
+      daily={daily}
+      windowShort={windowShort}
+      dense={dense}
+    />
+  ) : view === 'alerts' ? (
+    <UsageAlertsView
+      t={t}
+      alerts={alerts}
+      windowShort={windowShort}
+      daily={daily}
+      days={days}
+    />
+  ) : (
+    <>
+      {hero}
+      {stats}
+      {telemetry}
+      {insight}
+    </>
   )
 
   return (
@@ -362,52 +422,26 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
           }}
         >
           <div ref={headerRef}>
-            <BrandHeader
-              title={t('brand.name')}
-              usageLabel={t('brand.usage')}
-              accent={ACCENT_CYAN}
-              size="compact"
+            <UsageHeader
+              t={t}
+              views={USAGE_VIEWS.map((item) => t(VIEW_LABELS[item]))}
+              active={Math.max(0, USAGE_VIEWS.indexOf(view))}
+              onView={(index) => {
+                const next = USAGE_VIEWS[index]
+                if (next !== undefined) onView(next)
+              }}
+              windows={windows.map((item) => ({ value: item.value, label: item.label }))}
+              windowValue={windowValue}
+              onWindow={onWindow}
+              brandSize="compact"
+              pillSize="compact"
             />
           </div>
 
-          <div aria-hidden="true" style={{ height: 1, background: HAIRLINE, flex: 'none' }} />
+          {/* 读数的时候身体是骨架，提示文字就多余了（失败时仍然要说话）。 */}
+          {loading ? null : notice}
 
-          {/* 控件行：视图分段 + 时间窗药丸。窄屏放不下就换行。 */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: SPACE.sm,
-            }}
-          >
-            <div ref={tabsRef}>
-              <SegmentedControl
-                items={[t('view.overview'), t('view.top'), t('view.alerts')]}
-                active={0}
-                soonHint={t('view.soon')}
-                onSelect={() => undefined}
-                accent={ACCENT_CYAN}
-              />
-            </div>
-            <div ref={pillsRef} style={{ marginLeft: 'auto' }}>
-              <WindowPills
-                items={windows.map((item) => ({ value: item.value, label: item.label }))}
-                value={windowValue}
-                onSelect={onWindow}
-                accent={ACCENT_CYAN}
-                size="compact"
-              />
-            </div>
-          </div>
-
-          {notice}
-
-          {hero}
-          {stats}
-          {telemetry}
-          {insight}
+          {body}
 
           <div style={{ flex: 1 }} />
 

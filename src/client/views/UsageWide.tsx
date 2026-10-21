@@ -20,19 +20,21 @@
  * 组件自己不绑 locale：`t` 由调用方传进来。
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
 import {
-  BrandHeader,
   Insight,
   ProviderList,
   StatusFooter,
-  WindowPills,
 } from '../components/UsageChrome.js'
+import { UsageHeader, USAGE_VIEWS, type UsageView } from '../components/UsageHeader.js'
 import { UsageRing, RING_KEYS, type RingLabel } from '../components/UsageRing.js'
 import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry.js'
-import { DeltaChip, SegmentedControl, Sparkline, StatTile } from '../components/UsageMeters.js'
-import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
+import { DeltaChip, Sparkline, StatTile } from '../components/UsageMeters.js'
+import { dailySeries, dailyTotals, hitRate, windowDelta } from '../data/usage-metrics.js'
+import { deriveAlerts } from '../data/usage-alerts.js'
+import { UsageTopView } from './UsageTopView.js'
+import { UsageAlertsView } from './UsageAlertsView.js'
 import { dropIn, riseIn } from '../motion/usage-motion.js'
 import {
   ACCENT_CYAN,
@@ -114,6 +116,12 @@ export interface UsageWideProps {
   d7Total: number
   /** 按来源的拆分。 */
   providers: readonly UsageProviderTotal[]
+  /** 当前视图：总览 / Top / 告警。 */
+  view: UsageView
+  /** 切视图。 */
+  onView: (view: UsageView) => void
+  /** 时间窗的短标签（30D / 7D）。 */
+  windowShort: string
   /** 状态提示（读取中 / 读取失败）；没有就传 null。 */
   notice?: ReactNode
   /** 底栏状态行。 */
@@ -154,6 +162,9 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     todayTotal,
     d7Total,
     providers,
+    view,
+    onView,
+    windowShort,
     notice,
     status,
     version,
@@ -167,8 +178,6 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
   const scroller = useRef<HTMLDivElement | null>(null)
   const content = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  const pillsRef = useRef<HTMLDivElement | null>(null)
   const heroRef = useRef<HTMLDivElement | null>(null)
   const statsRef = useRef<HTMLDivElement | null>(null)
   const insightRef = useRef<HTMLDivElement | null>(null)
@@ -226,8 +235,6 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     if (played.current) return
     played.current = true
     dropIn(headerRef.current, timing.header)
-    dropIn(tabsRef.current, timing.tabs)
-    dropIn(pillsRef.current, timing.pills)
     riseIn(heroRef.current, timing.hero, 220)
     riseIn(statsRef.current, timing.kpi)
     riseIn(insightRef.current, timing.insight)
@@ -237,6 +244,11 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
   // 日序列：总量折线 + 每桶自己的走势。
   const totals = dailyTotals(daily ?? [])
   const bucketSeries = dailySeries(daily ?? [], names.map((name) => name.key))
+  /** 告警：告警屏要用，和竖屏是同一份推导。 */
+  const alerts = useMemo(
+    () => deriveAlerts({ daily: daily ?? [], buckets, total }),
+    [daily, buckets, total],
+  )
 
   /**
    * 涨跌签：当前窗口的日均，跟前一个等长窗口的日均比。
@@ -389,27 +401,27 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     </div>
   )
 
-  const tabs = (
-    <div ref={tabsRef}>
-      <SegmentedControl
-        items={[t('view.overview'), t('view.top'), t('view.alerts')]}
-        active={0}
-        soonHint={t('view.soon')}
-        onSelect={() => undefined}
-        accent={ACCENT_CYAN}
-      />
-    </div>
-  )
-
-  const pills = (
-    <div ref={pillsRef}>
-      <WindowPills
-        items={windows.map((item) => ({ value: item.value, label: item.label }))}
-        value={windowValue}
-        onSelect={onWindow}
-        accent={ACCENT_CYAN}
-      />
-    </div>
+  /**
+   * 头：与竖屏共用同一个 `UsageHeader`。
+   *
+   * 视图下标与 `USAGE_VIEWS` 一一对应——宽窄两种构图看的还是同一屏，
+   * 用户在两种版面之间来回换时，屏不会自己跳回去。
+   */
+  const header = (
+    <UsageHeader
+      t={t}
+      views={[t('view.overview'), t('view.top'), t('view.alerts')]}
+      active={Math.max(0, USAGE_VIEWS.indexOf(view))}
+      onView={(index) => {
+        const next = USAGE_VIEWS[index]
+        if (next !== undefined) onView(next)
+      }}
+      windows={windows.map((item) => ({ value: item.value, label: item.label }))}
+      windowValue={windowValue}
+      onWindow={onWindow}
+      brandSize="compact"
+      pillSize="normal"
+    />
   )
 
   const footer = (
@@ -472,60 +484,68 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
           }}
         >
           <div ref={headerRef}>
-            <BrandHeader
-              title={t('brand.name')}
-              usageLabel={t('brand.usage')}
-              accent={ACCENT_CYAN}
-              size="compact"
-            />
-          </div>
-          <div aria-hidden="true" style={{ height: 1, background: HAIRLINE, flex: 'none' }} />
-
-          {/* 控件行：视图分段 + 时间窗药丸，与竖屏同一套控件。 */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 28,
-              flexWrap: 'wrap',
-            }}
-          >
-            {tabs}
-            {pills}
+            {header}
           </div>
 
           {notice}
 
-          {/* 宽版：左主指标，右指标块 → 分类 → 来源。 */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `${leftWidth}px minmax(0, 1fr)`,
-              gap: 48,
-              alignItems: 'start',
-              width: '100%',
-              maxWidth: 1120,
-              margin: '0 auto',
-            }}
-          >
+          {/*
+            宽版：左主指标，右指标块 → 分类 → 来源。
+            Top / 告警两屏是**单列的卡流**（和竖屏同一套组件），
+            宽版靠卡片自己换行：窄列叠一列，宽列并两三列。
+          */}
+          {view === 'overview' ? (
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: SPACE.xl,
-                alignItems: 'stretch',
+                display: 'grid',
+                gridTemplateColumns: `${leftWidth}px minmax(0, 1fr)`,
+                gap: 48,
+                alignItems: 'start',
+                width: '100%',
+                maxWidth: 1120,
+                margin: '0 auto',
               }}
             >
-              {hero}
-              {insight}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: SPACE.xl,
+                  alignItems: 'stretch',
+                }}
+              >
+                {hero}
+                {insight}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xl, minWidth: 0 }}>
+                {stats}
+                {telemetry}
+                {providerCard}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xl, minWidth: 0 }}>
-              {stats}
-              {telemetry}
-              {providerCard}
+          ) : view === 'top' ? (
+            <div style={{ width: '100%', maxWidth: 1120, margin: '0 auto' }}>
+              <UsageTopView
+                t={t}
+                total={total}
+                providers={providers}
+                rate={hitRate(buckets)}
+                daily={daily}
+                windowShort={windowShort}
+                dense={dense}
+              />
             </div>
-          </div>
+          ) : (
+            <div style={{ width: '100%', maxWidth: 1120, margin: '0 auto' }}>
+              <UsageAlertsView
+                t={t}
+                alerts={alerts}
+                windowShort={windowShort}
+                daily={daily}
+                days={days}
+              />
+            </div>
+          )}
 
           <div style={{ flex: 1 }} />
 
