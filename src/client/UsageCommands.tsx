@@ -448,7 +448,22 @@ export function UsageCommands({ t }: UsageCommandsProps): ReactNode {
 
       <BottomRule />
       <div ref={footer} style={{ position: 'relative' }}>
-        <StatusFooter status={statusText} />
+        <StatusFooter
+          status={statusText}
+          actions={(
+            <span
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 9,
+                color: FAINT,
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {t('palette.hint')}
+            </span>
+          )}
+        />
       </div>
     </section>
   )
