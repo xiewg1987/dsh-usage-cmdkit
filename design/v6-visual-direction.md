@@ -182,7 +182,7 @@
    > Figma 帧 `v6 · 宽版 1280×720（实现对照）`。
    > 卡片与标签换成了竖屏那一套——分段控件、描边药丸、两枚 StatTile、
    > 带微折线的分类列表、三层洞察卡、绿点底栏，满屏网格与发光规则线删干净。
-   > 实现是独立组件 `src/client/UsageWide.tsx`。
+   > 实现是独立组件 `src/client/views/UsageWide.tsx`。
    > **补记**：后来连 3D 轨道矩阵也拿掉了，宽版主视觉换成大号扁平环，见 §9.5。
 6. **验收**：出图后必须用真实组件渲染一张对照图，逐块比。
    规矩见 `design/v6-preview.md`「这两张图是真实组件渲染的」——
@@ -197,10 +197,10 @@
 
 | 位置 | 内容 |
 |---|---|
-| `src/client/usage-theme.ts` | 色 / 间距 / 圆角常量（单一事实来源） |
-| `src/client/UsageCompact.tsx` | 竖屏构图 |
-| `src/client/UsageWide.tsx` | 宽版构图（大号扁平环 + 两列卡片） |
-| `src/client/usage-metrics.ts` | 折线序列与涨跌签的算法（窄宽共用） |
+| `src/client/theme/usage-theme.ts` | 色 / 间距 / 圆角常量（单一事实来源） |
+| `src/client/views/UsageCompact.tsx` | 竖屏构图 |
+| `src/client/views/UsageWide.tsx` | 宽版构图（大号扁平环 + 两列卡片） |
+| `src/client/data/usage-metrics.ts` | 折线序列与涨跌签的算法（窄宽共用） |
 | `design/v6-preview.md` | 逐块对照表 + 预览成图 + **实现偏差** |
 
 设计稿改了但实现没跟上 = 漂移；实现改了但稿子没跟上 = 另一份漂移。

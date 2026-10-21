@@ -20,8 +20,8 @@ design/_v6_src/mock.ts               # 两套预览共用的确定性 mock
 design/_v6_src/render-preview.mjs    # esbuild 打包 → Chrome(CDP) → 截图
 ```
 
-竖屏挂的是 `src/client/UsageCompact.tsx` 的 `UsageCompactView`，
-宽版挂的是 `src/client/UsageWide.tsx` 的 `UsageWideView`——
+竖屏挂的是 `src/client/views/UsageCompact.tsx` 的 `UsageCompactView`，
+宽版挂的是 `src/client/views/UsageWide.tsx` 的 `UsageWideView`——
 **都是实现里的那一个组件**，不是另画一张图。
 
 渲染用 **CDP + 真实时钟**（导航后真的等 2.6 秒再截图）。
@@ -103,7 +103,7 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 - **底色** `#070a12`（近黑的午夜蓝），**没有网格、没有角标、没有霓虹**。
 - **强调色上限 2**：界面蓝青 `#38bdf8` + 涨跌绿 `#22c55e`（跌为 `#ef4444`，只在真有负值时出现）。
 - **品类色**（蓝 / 绿 / 紫 / 橙）只出现在**圆点与细条**上，百分比一律灰阶。
-- **图标取 Lucide**（ISC），路径原样搬进 `src/client/usage-icons.tsx`，
+- **图标取 Lucide**（ISC），路径原样搬进 `src/client/components/usage-icons.tsx`，
   Figma 里用同一份 SVG 导入——不手画、不加 npm 依赖。
   底栏两枚按钮也带图标（`refresh-cw` / `trash-2`，11px），
   但**不省掉文字**：清空是不可撤销的操作，光一个垃圾桶认不出会点到什么。
@@ -134,7 +134,7 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 宽版的主视觉换成了**大号扁平环**（不再是 3D 轨道矩阵），其余全部是竖屏那一套：
 分段控件、描边药丸、两枚 StatTile、带微折线的分类列表、三层洞察卡、绿点底栏。
 
-所以宽版不是「把竖屏拉宽」，而是**另一个组件**：`src/client/UsageWide.tsx` 的
+所以宽版不是「把竖屏拉宽」，而是**另一个组件**：`src/client/views/UsageWide.tsx` 的
 `UsageWideView`。它与 `UsageCompactView` 同构（各自管自己的编排与 sticky 底栏），
 `UsageDashboard.tsx` 只负责**量宽度、选布局、传参**。
 

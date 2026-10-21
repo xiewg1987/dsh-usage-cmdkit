@@ -91,7 +91,7 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 ## 面板重挂时状态留在原地
 
 右栏的 Tab 会被宿主随时卸载/重挂——用户切到别的 Tab 再切回来，面板重新挂载一次。
-数据放在模块级的 `src/client/usage-state.ts`（`useSyncExternalStore` 订阅），
+数据放在模块级的 `src/client/data/usage-state.ts`（`useSyncExternalStore` 订阅），
 切回来就不用再读一遍，也不会闪一下「正在读取」。
 
 模块级单例是安全的：浏览器半整包在页面里只加载一次

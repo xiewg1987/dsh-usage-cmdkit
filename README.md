@@ -85,7 +85,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 | ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) |
 
 > 这两张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
-> `src/client/UsageWide.tsx` / `src/client/UsageCompact.tsx` 后用 Chrome 截的），
+> `src/client/views/UsageWide.tsx` / `src/client/views/UsageCompact.tsx` 后用 Chrome 截的），
 > 不是另画的静态稿。逐块对照表、视觉规矩与**实现偏差**见
 > [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
 
@@ -110,7 +110,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 
 ![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
 
-> 宽版是**独立组件**（`src/client/UsageWide.tsx`），不是把竖屏拉宽：
+> 宽版是**独立组件**（`src/client/views/UsageWide.tsx`），不是把竖屏拉宽：
 > 环的大小是**量出来的**（面板比一屏高多少就把环压小多少），
 > 因为宿主右栏的高度随窗口变，固定尺寸定不了这件事。
 
@@ -212,25 +212,35 @@ src/
   usage-store.ts     日 rollup 持久化与汇总（JSON）
   host-routes.ts     Connection 认证路由：/api/usage.summary、/api/usage.clear
   protocol.ts        Host / Client 共享的常量与类型（只有常量与类型）
-  client/            浏览器半（右栏的一个 Tab）
+  client/            浏览器半（右栏的一个 Tab），按类型分目录
     index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND
-    UsageDashboard.tsx  调度层：量面板宽度、选布局、传参
-    UsageWide.tsx    宽栏（≥900px）那一版：大号扁平环 + 两列卡片
-    UsageCompact.tsx 窄栏（<900px）那一版：v6 竖屏构图
-    UsageChrome.tsx  外框件：品牌头、分段控件、时间窗、洞察卡、底栏
-    UsageMeters.tsx  读数件：折线 / 小表盘 / 涨跌签 / 指标块 / 分段控件
-    usage-icons.tsx  Lucide 图标（ISC，路径原样搬入，不加 npm 依赖）
-    usage-ring-geometry.ts  环与分类列表共用的分段与标签规则
-    usage-buttons.ts 底栏 ghost 按钮样式（预览与实现共用一份）
-    usage-motion.ts  入场编排的时间表与 Web Animations 原语
-    usage-metrics.ts 比率算式、日序列折线、窗口涨跌
-    usage-client.ts  取数与窗口状态
-    usage-state.ts   共享状态（用量数据 / 时间窗 / 清空状态）
-    usage-theme.ts   视觉常量
-    locales.ts       zh 为键集事实来源，en 同键集
+    usage-version.ts 构建期注入的包版本号
+    views/
+      UsageDashboard.tsx  调度层：量面板宽度、选布局、传参
+      UsageWide.tsx    宽栏（≥900px）那一版：大号扁平环 + 两列卡片
+      UsageCompact.tsx 窄栏（<900px）那一版：v6 竖屏构图
+    components/
+      UsageChrome.tsx  外框件：品牌头、分段控件、时间窗、洞察卡、底栏
+      UsageMeters.tsx  读数件：折线 / 小表盘 / 涨跌签 / 指标块 / 分段控件
+      UsageRing.tsx    主环：四段弧 + 环心总览 + 环外百分比
+      UsageTelemetry.tsx 四行遥测列表
+      UsageTitle.tsx   Tab 的标题
+      usage-icons.tsx  Lucide 图标（ISC，路径原样搬入，不加 npm 依赖）
+    data/
+      usage-ring-geometry.ts  环与分类列表共用的分段与标签规则
+      usage-metrics.ts 比率算式、日序列折线、窗口涨跌
+      usage-client.ts  取数与窗口状态
+      usage-state.ts   共享状态（用量数据 / 时间窗 / 清空状态）
+    theme/
+      usage-theme.ts   视觉常量
+      usage-buttons.ts 底栏 ghost 按钮样式（预览与实现共用一份）
+    motion/
+      usage-motion.ts  入场编排的时间表与 Web Animations 原语
+    i18n/
+      locales.ts      zh 为键集事实来源，en 同键集
 scripts/
   build-client.mjs   浏览器半 → lib/client.js（入口）
-docs/                实施文档（00 统一说明 + 01/02/03 步骤文档）
+docs/                实施文档（00 统一说明 + steps/ 步骤文档 + guide/ 学习文档）
 design/              视觉稿（成图入库，源文件在 _v4_src/ / _v6_src/，本地）
 cordis.patch.yml     插件装载行（裸包名才会加载 client 半）
 patch.dev.yml        Host 源码联调（不加载 client 半）
@@ -288,7 +298,7 @@ pnpm dsh web
 ### 实现要点
 
 - **不回读会话历史。** harness 已弃用 `session.snapshotEvents()`，存储演进后完整事件序列不再保证常驻内存。改为在 `session/event` 流上就地攒一个 turn 的段：`turn/start` 开缓冲、`turn/end` 交出。内存占用与 turn 长度成正比，与会话历史长度无关。
-- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md)。
+- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/03-remotes-and-client.md)。
 - **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
 - **插件不注册全局快捷键**。宿主的 `⌘K` 已经派给了「搜索会话」，插件再抢同一个键，两个面板会同时响应；`⌘/` 又是宿主的快捷键手册。与其挑一枚不冲突的键（`⌘J` / `Ctrl+Alt+J`）再把改键、冲突检测、键帽渲染都接一遍，不如**完全不占全局键位**——面板里的操作都在面板里做。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
@@ -301,9 +311,10 @@ pnpm dsh web
 
 - [docs/README.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/README.md) —— 实施顺序与索引
 - [docs/00-项目说明.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/00-项目说明.md) —— 项目总览与学习文档
-- [docs/01-collect-usage-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
-- [docs/02-persist-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/02-persist-stats.md) —— 步骤 2：持久化 JSON
-- [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
+- [docs/steps/01-collect-usage-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
+- [docs/steps/02-persist-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/02-persist-stats.md) —— 步骤 2：持久化 JSON
+- [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
+- [docs/guide/步骤1代码详解.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/guide/步骤1代码详解.md) —— 步骤 1 的逐行学习文档
 
 ### 外部参考
 
