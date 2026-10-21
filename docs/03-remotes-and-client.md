@@ -39,12 +39,16 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 
 - 槽位：**右栏 Tab**——`ctx.sidebarRightTabs.register({ id, kind, title, guide })`
   加上 `sidebar.right.pane.tab` / `sidebar.right.pane.tab.title` 两个 seat 的注册。
-- 三个全局标识的取名（`src/client/index.ts`）：
+- 两个 Tab（用量与命令面板）**共用一个 seat 名**：`sidebar.right.pane.tab` 是 keyed slot，
+  两个注册各带自己的 `key`（各自的 `TAB_ID`）即可共存。
+- 全局标识的取名（`src/client/index.ts`）：
 
   | 标识 | 值 | 为什么这么取 |
   |------|----|--------------|
   | `TAB_ID` | `dsh-usage-cmdkit` | **实现身份**，全局唯一，取包名 |
   | `TAB_KIND` | `usage-dashboard` | **类型判别符**，harness 侧一律取短名（`guide` / `files` / `terminal`） |
+  | `TAB_ID_COMMANDS` | `dsh-usage-cmdkit-commands` | 命令面板那一面的实现身份 |
+  | `TAB_KIND_COMMANDS` | `usage-commands` | 命令面板那一面的类型判别符 |
   | `NS` | `dsh.usage` | 字典命名空间，全局且是 TypeScript 全局声明合并点，带段前缀避开通用裸词 |
 
   ⚠️ **`TAB_KIND` 不要改名**：右栏每个已打开的 Tab 都把 kind 记进会话的持久化状态，
@@ -69,6 +73,36 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 
 - 联调必须用 **`plugin add`**（`cordis.patch.yml` 裸包名），不要用 `--patch` 测 UI。
 - 刷新：再次调用汇总路由；清空：调清空路由后重读。
+
+## 快捷键：走宿主的快捷键目录，不要自己监听 window
+
+命令面板的唤出键注册在 `ctx.shortcuts.register` 上（id `dsh.usage.palette`），
+而不是自己往 window 上挂 keydown。原因有三：
+
+1. **别抢宿主已经占用的键**。宿主把 `⌘K` / `Ctrl+K` 派给了「搜索会话」
+   （`ui-workspace` 的 `session.search`），`⌘/` 派给了快捷键手册
+   （`ui-shortcuts` 的 `shortcuts.open`）。插件自己监听 window 抢同一个键，
+   两个面板会同时响应——这比没有快捷键更糟。注册表在注册时就检查重叠，
+   冲突直接抛错。
+2. **改键与冲突检测是宿主的事**。注册进去的命令会出现在 DSH 自己的快捷键设置里，
+   用户改完绑定，插件从 `ctx.shortcuts.catalog` 读到的就是**这台机器上真实生效**的键帽。
+3. **平台差异是宿主算的**。`primary` 在 macOS 展开成 `⌘`、在别处展开成 `Ctrl`；
+   浏览器里还要避开 `Ctrl+数字`（浏览器的「切标签页」），所以多一个 `Alt`。
+   这些规则宿主已经写好了，插件照抄一遍只会漂。
+
+面板里显示的键帽读 `ctx.shortcuts.catalog`（含用户改过的绑定），
+目录还没就绪时按平台推算一枚兜底。
+
+> 面板**内**的加速键（`⌘1` / `⌘⇧J` / `⌘E`）**不进宿主目录**：
+> 它们只在面板打开时有效，由面板自己的 keydown 处理。
+
+## 两个 Tab 之间的共享状态
+
+用量面板与命令面板是**两个组件实例**，但必须看到同一份数据与同一个时间窗
+（命令面板里「切到 30 日」要真的改到用量面板的环上）。
+组件内的 `useState` 做不到，所以状态提到模块级（`src/client/usage-state.ts`），
+用 `useSyncExternalStore` 订阅。模块级单例是安全的：浏览器半整包在页面里只加载一次，
+两个 Tab 共用同一个模块实例。
 
 ## 可选 Phase D
 

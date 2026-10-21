@@ -2,7 +2,7 @@
 
 > DSH Web 的本地插件：右侧栏的**用量遥测**（Usage）+ 全局**命令面板**（Commands）。
 
-*Local DSH Web plugin — usage telemetry in the sidebar, plus a global command palette (Ctrl+K / ⌘K).*
+*Local DSH Web plugin — usage telemetry in the sidebar, plus a command palette (⌘J / Ctrl+Alt+J).*
 
 [![npm](https://img.shields.io/npm/v/dsh-usage-cmdkit.svg)](https://www.npmjs.com/package/dsh-usage-cmdkit)
 [![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/LICENSE)
@@ -11,7 +11,7 @@
 一个扩展，两个面：
 
 - **Usage** —— 把这台机器上真实发生的 token 用量摊在右侧栏里：四桶拆分、30 天滚动窗口、按来源聚合。
-- **Commands** —— 全局可搜索命令面板（`⌘K` / `Ctrl+K`）：聚焦输入、复制上一条回复、跳到 Usage、切换时间窗、导出。
+- **Commands** —— 可搜索的命令面板（`⌘J` / `Ctrl+Alt+J` 唤起）：跳到 Usage、切换时间窗、复制用量 JSON、导出用量 CSV、刷新与清空。
 
 **数据与配置全部留在本机**：不额外调模型、不请求开放平台统计 API、不上传任何东西。
 
@@ -35,9 +35,9 @@
 | 日均 sparkline（当前只有日均值） | 🚧 计划中 |
 | Top3 截断（当前按来源是完整列表） | 🚧 计划中 |
 | Alerts 阈值告警 | 🚧 计划中 |
-| Copy JSON / Export CSV | 🚧 计划中 |
-| **Commands 命令面板（⌘K / Ctrl+K）** | 🚧 **开发中** |
-| 快捷键改键 + 冲突检测 | 🚧 计划中 |
+| Copy JSON / Export CSV | ✅ 已发布 |
+| **Commands 命令面板（⌘J / Ctrl+Alt+J）** | ✅ 已发布 |
+| 快捷键改键 + 冲突检测 | ✅ 已发布（走宿主快捷键目录） |
 
 🚧 = 计划中 / 开发中，尚未进主干。下面的功能清单会标注每一项的状态。
 
@@ -46,8 +46,9 @@
 > 数字只当量级参考，别当账单。可配置的单价表仍在计划中。
 
 > 「计划中」不是空话——**v4 设计稿已经画完了**（见 [截图](#截图)）：Usage 的
-> Cost / Top / Alerts 标签、缓存命中率、花费估算、日均 sparkline、Top3、导出动作，
-> 以及整个 ⌘K 命令面板，都在设计稿里等着实现。设计稿是这轮打磨的目标形态。
+> Cost / Top / Alerts 标签、日均 sparkline、Top3，以及可配置的单价表，
+> 都在设计稿里等着实现。设计稿是这轮打磨的目标形态。
+> 命令面板那一面已经按设计稿落地（右栏的第二个 Tab）。
 
 ---
 
@@ -66,7 +67,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 - **刷新 / 清空** —— 重新读汇总；清空会把本地统计文件重置。
 - **自适应布局** —— 按面板**实测宽度**选布局（≥900px 走双栏 hero 版，860px 以下回落窄栏，带迟滞免得来回横跳），不按 `sidebar.fullscreen`——窗口窄时右栏会自动全屏，那时可用宽度反而更小。窄栏堆叠、宽面板左环右数据。
 - **一屏装下** —— 右栏的高度随窗口变，固定尺寸的设计稿定不了这件事，所以面板在运行时量：内容比一屏高多少，环就缩多少（环径下限 118px）；窗口矮于 820px 时再切一档「紧凑密度」（行距、字号、环径下限一起收紧）。实测 360×720 到 1280×900 各档都是零滚动条，底栏（刷新 / 清空）永远可见。
-- **v4 视觉与入场动效** —— 近黑底 + 平视网格底纹 + 唯一强调色电光蓝；入场按编排落位（品牌头 → 视图 Tab / 时间窗 → 环与弧 → 双指标 → 四行遥测 → 洞察 → ⌘K 条 → 底栏），刷新走插值不重播。
+- **v4 视觉与入场动效** —— 近黑底 + 平视网格底纹 + 唯一强调色电光蓝；入场按编排落位（品牌头 → 视图 Tab / 时间窗 → 环与弧 → 双指标 → 四行遥测 → 洞察 → 命令面板条 → 底栏），刷新走插值不重播。
 - **3D 轨道矩阵** —— 主环从 2D SVG 换成 three.js 场景，从外到内是一条完整的仪表带：**鳍片环**（84 根径向鳍片，高度按桶占比起伏，顶边按桶色发光，像频谱仪）→ **底轨**（暗金属 + 菲涅尔轮廓光）→ **刻度环**（72 格）→ **数据轨**（四色数据扁带 + 弧外侧一圈淡出的加法辉光壳 + 一个跑动的读取头）→ **环心留空**。**图是 3D 的，数字与标签是普通 DOM 文字**——环心总览与环外百分比不随透视变形，环外标签随弧段实时投影定位。倾斜 30° 的视角 + 0.07 rad/s 空闲慢自转（约 90s 一圈）。数据弧用不受光的基础材质，四个桶的色值**原样输出**（`#4c8dff / #22c55e / #a855f7 / #f59e0b`），不会在色调映射里被推成白色。
 - **细节随尺寸自适应** —— 环的直径在 118–300px 之间，鳍片与刻度按画布大小换档（84 根 → 32 根、72 格 → 不画）。同一套细节在小环上会挤成一片噪点。
 - **不烧帧** —— 入场与弧长插值满帧，空闲自转只跑 **20fps** 步进，面板不可见时整帧跳过（连场景更新都省掉）；整帧 22–30 次 draw call，不随时间增长。实测空闲 19 帧/秒、插值期间 36 帧/秒。
@@ -77,18 +78,21 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 - Top3 截断、日均 sparkline。
 - 可配置的单价表（当前只有内置默认费率）。
 - Alerts：按阈值告警（单日 token、单日花费等）。
-- Copy JSON / Export CSV。
 
-### Commands —— 全局命令面板
+### Commands —— 命令面板
 
-> 🚧 **开发中，尚未进主干。** 下面是目标形态。
+右栏里的**第二个 Tab**（「命令」），`⌘J` / `Ctrl+Alt+J` 唤起，**与 Usage 同属一个扩展**——共用同一份本地状态：面板里切时间窗，Usage 面板上的环立刻跟着变。
 
-一个可搜索的命令面板，`⌘K` / `Ctrl+K` 唤起，**与 Usage 同属一个扩展**——共用同一份本地状态与同一套配置。
+- **搜索** —— 输入即过滤，命令名与别名都参与匹配。
+- **分组** —— 视图 / 时间窗 / 数据三组。
+- **可执行动作** —— 打开 Usage、切换时间窗（今日 / 7 日 / 30 日）、复制用量 JSON、导出用量 CSV、刷新、清空统计。
+- **键位克制** —— 只有面板本身的唤出键绑到全局；其余命令**只在面板内执行**（`⌘1` / `⌘⇧J` / `⌘E` 这类面板内加速键不进宿主目录），避免和宿主快捷键打架。
+- **导出** —— Copy JSON 把整份汇总（三个时间窗 + 按来源拆分）写进剪贴板；Export CSV 落一个 `dsh-usage-<时间戳>.csv`，表结构是三行窗口总计 + 30 日按来源明细。两者都只写本机，不出网。
+- **唤出键** —— 注册在**宿主的快捷键目录**里（`ctx.shortcuts.register`），所以用户能在 DSH 自己的快捷键设置里改键，冲突也由宿主检测（重名或与已有键位重叠时注册直接抛错，而不是悄悄抢键）。
 
-- **搜索** —— 输入即过滤，支持命令别名。
-- **分组** —— 最近 / 聊天 / 用量 / 系统。
-- **可执行动作** —— 聚焦输入框、复制上一条回复、打开 Usage、切换时间窗（今日 / 7 日 / 30 日）、导出数据等。
-- **键位克制** —— 多数命令**只在面板内执行**，不额外绑定全局键，避免和宿主快捷键打架；只有面板本身的唤出键是全局的。
+> **为什么不是 `⌘K`**：宿主已经把 `⌘K` / `Ctrl+K` 派给了「搜索会话」
+> （`ui-workspace` 的 `session.search`）。插件再抢同一个键，两个面板会同时响应。
+> 所以唤出键另取一枚没被占用的 `⌘J`；`⌘/` 也不行——那是宿主的快捷键手册。
 
 ### 两条取舍
 
@@ -109,15 +113,24 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是克制的科幻 HUD�
 |---|---|
 | ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-wide.png) | ![窄栏堆叠](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-3d-narrow.png) |
 
+命令面板（右栏的第二个 Tab，「⌘J」唤出）：
+
+![命令面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-commands.png)
+
+> 键帽按**这台机器上真实生效的绑定**显示（读的是宿主的快捷键目录），
+> 所以 Windows / 浏览器里是 `Ctrl+Alt+…`，macOS 桌面是 `⌘…`。
+> 用户在 DSH 的快捷键设置里改过之后，这里跟着变。
+
 ### v4 设计稿
 
 ![Usage 侧栏与命令面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v4-1280x720.png)
 
-上图是 **v4 设计稿**：左侧 Usage 侧栏，右侧 ⌘K 命令面板。当前实现到左边的
+上图是 **v4 设计稿**：左侧 Usage 侧栏，右侧命令面板。当前实现到左边的
 Overview——环 + 缓存命中率 / 花费估算 + 四桶遥测 + 按来源 + 时间窗，外框与配色
-跟设计稿一致（品牌头、平视网格底纹、唯一强调色电光蓝）。右半部分的命令面板，
-以及左侧 Cost / Top / Alerts 三个标签页、底部导出动作，都还在开发中：
-面板里它们以**禁用态**画着，形态留着但不点不动。
+跟设计稿一致（品牌头、平视网格底纹、唯一强调色电光蓝）。右半部分的命令面板
+已经落地成右栏的第二个 Tab（形态照设计稿，键位按宿主实际占用的键位调整过）；
+左侧 Cost / Top / Alerts 三个标签页还在开发中，面板里以**禁用态**画着，
+形态留着但不点不动。
 
 | 窄栏堆叠版 | 面板 hero 版 |
 |---|---|
@@ -181,9 +194,11 @@ pnpm dsh web
 
 **打开 Usage**：DSH Web 右侧栏 → 「用量」Tab。也可以从右栏引导页（guide）里挑这个入口。
 
-**唤出命令面板**：🚧 计划中 —— `⌘K` / `Ctrl+K`。
+**唤出命令面板**：`⌘J` / `Ctrl+Alt+J`（Windows 与浏览器里是 `Ctrl+Alt+J`；macOS 桌面是 `⌘J`）。
+也可以点用量面板右上角的「Commands」，或面板底部那条命令入口。
+这个键位在 **DSH 自己的快捷键设置**里可以改——它注册在宿主的快捷键目录里。
 
-**刷新与清空**：面板上有「刷新」与「清空」。清空会删除本地统计记录，**不可撤销**。
+**刷新与清空**：用量面板底部与命令面板里都有「刷新」与「清空」。清空会删除本地统计记录，**不可撤销**。
 
 ---
 
@@ -198,10 +213,16 @@ pnpm dsh web
 | `storagePath` | 统计文件路径（默认 DSH profile 下） | 🚧 计划中 |
 | `retentionDays` | 保留天数（默认 30） | 🚧 计划中 |
 | 单价表 | 花费估算用的 provider / model 单价 | 🚧 计划中（当前用内置常量） |
-| 唤出键 | 命令面板快捷键，可改 | 🚧 计划中 |
-| 冲突检测 | 唤出键与宿主快捷键冲突时提示 | 🚧 计划中 |
 
-**快捷键冲突**：命令面板的唤出键是唯一绑到全局的键位，其余命令只在面板内执行，以避免和宿主快捷键冲突。改键后会做一次冲突检测（计划中）。
+**快捷键**：命令面板的唤出键是唯一绑到全局的键位，其余命令只在面板内执行，
+以避免和宿主快捷键冲突。
+
+- 唤出键注册在**宿主的快捷键目录**（`ctx.shortcuts.register`，id `dsh.usage.palette`），
+  所以改键在 DSH 的「设置 → 快捷键」里完成，插件不另造一套设置页。
+- **冲突检测由宿主做**：注册时若与已有命令的默认键位重叠，宿主直接抛错——
+  插件不会悄悄抢键。面板上显示的键帽也是从宿主目录读的，
+  包含用户自己改过的绑定。
+- 面板内的加速键（`⌘1` / `⌘⇧J` / `⌘E`）**不进宿主目录**，只在本面板里生效。
 
 ---
 
@@ -231,9 +252,10 @@ src/
   usage-store.ts     日 rollup 持久化与汇总（JSON）
   host-routes.ts     Connection 认证路由：/api/usage.summary、/api/usage.clear
   protocol.ts        Host / Client 共享的常量与类型（只有常量与类型）
-  client/            浏览器半（右栏 Tab）
-    index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND
+  client/            浏览器半（右栏的两个 Tab）
+    index.ts         槽位注册、locale 命名空间、TAB_ID / TAB_KIND、快捷键注册
     UsageDashboard.tsx / UsageRing.tsx / UsageTelemetry.tsx / UsageTitle.tsx
+    UsageCommands.tsx / UsageCommandsTitle.tsx  命令面板（第二个右栏 Tab）
     UsageChrome.tsx  v4 外框件：底纹、品牌头、视图 Tab、时间窗、双指标、底栏
     UsageRing3D.tsx  3D 环宿主：canvas + DOM 读数覆盖层 + 降级到 SVG 环
     usage-3d.ts      three.js 场景：鳍片环、底轨、刻度、数据轨、读取头
@@ -241,6 +263,9 @@ src/
     usage-motion.ts  入场编排的时间表与 Web Animations 原语
     usage-pricing.ts 费率表与成本 / 命中率算式
     usage-client.ts  取数与窗口状态
+    usage-state.ts   两个 Tab 共享的状态（用量数据 / 时间窗 / 导航入口）
+    usage-keys.ts    键帽按平台与运行时渲染
+    usage-export.ts  导出：JSON / CSV 的内容与落地
     usage-theme.ts   视觉常量
     locales.ts       zh 为键集事实来源，en 同键集
 scripts/
@@ -312,7 +337,8 @@ pnpm dsh web
 
 - **不回读会话历史。** harness 已弃用 `session.snapshotEvents()`，存储演进后完整事件序列不再保证常驻内存。改为在 `session/event` 流上就地攒一个 turn 的段：`turn/start` 开缓冲、`turn/end` 交出。内存占用与 turn 长度成正比，与会话历史长度无关。
 - **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/03-remotes-and-client.md)。
-- **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
+- **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。命令面板是**第二个 Tab**（`TAB_ID_COMMANDS` / `TAB_KIND_COMMANDS`），另有一组标识，规则相同。
+- **快捷键走宿主目录**。命令面板的唤出键注册在 `ctx.shortcuts.register`（id `dsh.usage.palette`）上，**不自己监听 window**：宿主已经把 `⌘K` 派给了「搜索会话」，插件再抢同一个键两个面板会同时响应；同一份注册表还顺带给了改键与冲突检测（重名或键位重叠时宿主直接抛错），面板上的键帽也从那里读。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
 - **3D 环的坑**（都踩过，记在这儿）：
   - **有合成器时 `toneMapped: false` 会失效**。`EffectComposer` 把场景渲进 render target，three 就**禁用材质级 tone mapping**（`WebGLPrograms` 里判 `currentRenderTarget === null`），ACES 改由 `OutputPass` 对整帧施加一次。于是桶色 `#4c8dff` 过一遍 ACES 变成约 `#659ce2`，蓝弧看着发青、四个桶分不清。**直接 `renderer.render()`** 之后 tone mapping 回到材质级，桶色才原样输出；顺带也省掉 bloom 那套全屏模糊（分片 568 KB → 550 KB）。

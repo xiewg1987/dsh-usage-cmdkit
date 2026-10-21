@@ -20,10 +20,10 @@
  * 样式用内联 style：本插件的浏览器半是独立打包的产物，
  * 不走 harness 的 CSS Modules 管线，内联样式能免掉一整条构建依赖。
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { UsageBuckets, UsageProviderTotal, UsageSummary } from '../protocol.js'
+import type { UsageBuckets, UsageProviderTotal } from '../protocol.js'
 import { RING_KEYS, type RingLabel } from './UsageRing.js'
 import { UsageRing3D } from './UsageRing3D.js'
 import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
@@ -53,17 +53,20 @@ import {
   formatCount,
   percentOf,
 } from './usage-theme.js'
-import { clearUsageStats, fetchUsageSummary } from './usage-client.js'
+import { paletteKeycap } from './usage-keys.js'
+import {
+  clearUsage,
+  ensureUsageLoaded,
+  loadUsage,
+  openCommandPanel,
+  setUsageRange,
+  useUsageState,
+  type UsageRange,
+} from './usage-state.js'
 /** Props 由 slot 绑定与 locale 绑定组成，不要手工窄化。 */
 export type UsageDashboardProps =
   PropsRuntime<'sidebar.right.pane.tab'>
   & PropsLocale<'dsh.usage'>
-
-/** 可切换的时间窗。 */
-type Range = 'today' | 'd7' | 'd30'
-
-/** 面板状态：读取中 / 已有数据 / 读失败。 */
-type Status = 'loading' | 'ready' | 'failed'
 
 /** 面板实测的可用宽度，以及据此选出的布局形态。 */
 interface Surface {
@@ -76,7 +79,7 @@ interface Surface {
 }
 
 /** 每个时间窗覆盖的日历日数：日均与窗口标签都用它。 */
-const RANGE_DAYS: Record<Range, number> = { today: 1, d7: 7, d30: 30 }
+const RANGE_DAYS: Record<UsageRange, number> = { today: 1, d7: 7, d30: 30 }
 
 /** 窄栏形态的环尺寸上下限。 */
 const COMPACT_RING_MIN = 170
@@ -173,12 +176,10 @@ function clockOf(timestamp: number): string {
  * @returns 面板内容。
  */
 export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
-  const [summary, setSummary] = useState<UsageSummary | undefined>(undefined)
-  const [status, setStatus] = useState<Status>('loading')
-  const [range, setRange] = useState<Range>('d30')
-  const [clearing, setClearing] = useState(false)
+  // 数据、时间窗、清空状态都住在共享 store 里：命令面板是另一个 Tab，
+  // 两边必须看到同一份数据与同一个时间窗。
+  const { summary, status, range, clearing, style, paletteKeys } = useUsageState()
   const [surface, setSurface] = useState<Surface>({ width: 0, height: 0, wide: false })
-  const lifetime = useRef<AbortController | undefined>(undefined)
   const panel = useRef<HTMLElement | null>(null)
   /** 滚动容器：内容超高时它自己滚。 */
   const scroller = useRef<HTMLDivElement | null>(null)
@@ -221,36 +222,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     return () => observer.disconnect()
   }, [])
 
-  const load = useCallback(async () => {
-    const controller = lifetime.current
-    if (controller === undefined) return
-    const value = await fetchUsageSummary(controller.signal)
-    if (controller.signal.aborted) return
-    setSummary(value)
-    setStatus(value === undefined ? 'failed' : 'ready')
-  }, [])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    lifetime.current = controller
-    setStatus('loading')
-    void load()
-    return () => {
-      controller.abort()
-      lifetime.current = undefined
-    }
-  }, [load])
-
-  const onClear = useCallback(async () => {
-    const controller = lifetime.current
-    if (controller === undefined || clearing) return
-    setClearing(true)
-    const cleared = await clearUsageStats(controller.signal)
-    if (!controller.signal.aborted) {
-      setClearing(false)
-      if (cleared) await load()
-    }
-  }, [clearing, load])
+  useEffect(() => { ensureUsageLoaded() }, [])
 
   const buckets = useMemo<UsageBuckets | undefined>(() => {
     if (summary === undefined) return undefined
@@ -369,7 +341,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
 
   const actions = (
     <>
-      <button type="button" data-usage-refresh="" style={ghostButton} onClick={() => void load()}>
+      <button type="button" data-usage-refresh="" style={ghostButton} onClick={() => void loadUsage()}>
         {t('action.refresh')}
       </button>
       <button
@@ -377,7 +349,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         data-usage-clear=""
         style={ghostButton}
         disabled={clearing}
-        onClick={() => void onClear()}
+        onClick={() => void clearUsage()}
       >
         {clearing ? t('action.clearing') : t('action.clear')}
       </button>
@@ -480,7 +452,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
           { value: 'd30', label: t('window.d30') },
         ]}
         value={range}
-        onSelect={(value) => setRange(value as Range)}
+        onSelect={(value) => setUsageRange(value as UsageRange)}
       />
     </div>
   )
@@ -488,11 +460,10 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   const commandEntry = (
     <div ref={entryRef}>
       <CommandEntry
-        badge={t('entry.badge')}
+        badge={paletteKeycap(style, paletteKeys)}
         label={t('entry.commands')}
         hint={t('entry.hint')}
-        unavailableHint={t('entry.soon')}
-        ready={false}
+        onOpen={() => { openCommandPanel() }}
       />
     </div>
   )
@@ -563,8 +534,8 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
             title={t('brand.name')}
             usageLabel={t('brand.usage')}
             commandsLabel={t('brand.commands')}
-            commandsReady={false}
-            commandsHint={t('brand.commandsSoon')}
+            active="usage"
+            onOpenCommands={() => { openCommandPanel() }}
           />
         </div>
         <Divider />

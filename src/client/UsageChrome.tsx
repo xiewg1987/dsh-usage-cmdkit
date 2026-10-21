@@ -102,38 +102,58 @@ export interface BrandHeaderProps {
   usageLabel: string
   /** 另一面（Commands）的名字。 */
   commandsLabel: string
-  /** 另一面是否已实现：没有就画成禁用态。 */
-  commandsReady: boolean
-  /** 禁用态的悬停说明。 */
-  commandsHint: string
+  /** 当前停在哪一面。 */
+  active: 'usage' | 'commands'
+  /** 切到 Usage（当前已经在 Usage 时不传）。 */
+  onOpenUsage?: () => void
+  /** 切到 Commands（当前已经在 Commands 时不传）。 */
+  onOpenCommands?: () => void
 }
 
 /**
  * 品牌头：左边品牌名，右边 Usage | Commands 切换器。
+ *
+ * 两个名字都是**真的能点的**——它们对应右栏里的两个 Tab，
+ * 不是装饰，也不是禁用态：这一行就是两个 Tab 之间的切换器。
  * @param props - 品牌头文案与切换器状态。
  * @returns 品牌头。
  */
 export function BrandHeader(props: BrandHeaderProps): ReactNode {
-  const { title, usageLabel, commandsLabel, commandsReady, commandsHint } = props
+  const { title, usageLabel, commandsLabel, active, onOpenUsage, onOpenCommands } = props
+  const face = (label: string, on: boolean, open?: () => void): ReactNode => {
+    if (on || open === undefined) {
+      return (
+        <span style={{ fontSize: 11, fontWeight: on ? 600 : 500, color: on ? ACCENT : MUTED }}>{label}</span>
+      )
+    }
+    return (
+      <button
+        type="button"
+        data-usage-open-usage={label === usageLabel ? '' : undefined}
+        data-usage-open-commands={label === commandsLabel ? '' : undefined}
+        onClick={open}
+        style={{
+          font: 'inherit',
+          fontSize: 11,
+          fontWeight: 500,
+          color: MUTED,
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {label}
+      </button>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{title}</span>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: ACCENT }}>{usageLabel}</span>
+        {face(usageLabel, active === 'usage', onOpenUsage)}
         <span style={{ fontSize: 11, color: FAINT }}>|</span>
-        {commandsReady
-          ? (
-            <span style={{ fontSize: 11, fontWeight: 500, color: MUTED }}>{commandsLabel}</span>
-          )
-          : (
-            <span
-              title={commandsHint}
-              aria-disabled="true"
-              style={{ fontSize: 11, fontWeight: 500, color: FAINT, cursor: 'not-allowed' }}
-            >
-              {commandsLabel}
-            </span>
-          )}
+        {face(commandsLabel, active === 'commands', onOpenCommands)}
       </div>
     </div>
   )
@@ -336,36 +356,37 @@ export interface CommandEntryProps {
   label: string
   /** 快捷键徽标（左侧）。 */
   badge: string
-  /** 不可用时的悬停说明。 */
-  unavailableHint: string
-  /** 是否已实现。 */
-  ready: boolean
+  /** 点击时的动作。 */
+  onOpen: () => void
 }
 
 /**
  * 命令面板入口条。
  *
- * 命令面板这一面还没实现，所以这条是**禁用态**：
- * 形态留着（v4 构图的一部分），但点不动，也不假装能点。
- * @param props - 入口条的文案与状态。
+ * 徽标上的键帽是**这台机器上真实生效的那一枚**（来自宿主快捷键目录），
+ * 点一下就切到命令面板那个 Tab。
+ * @param props - 入口条的文案与动作。
  * @returns 入口条。
  */
 export function CommandEntry(props: CommandEntryProps): ReactNode {
-  const { hint, label, badge, unavailableHint, ready } = props
+  const { hint, label, badge, onOpen } = props
   return (
-    <div
-      title={ready ? undefined : unavailableHint}
-      aria-disabled={!ready}
+    <button
+      type="button"
+      data-usage-commands=""
+      onClick={onOpen}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 10,
+        width: '100%',
+        textAlign: 'left',
+        font: 'inherit',
         padding: '8px 10px',
         borderRadius: 8,
         border: `1px solid ${EDGE}`,
         background: 'rgba(255,255,255,0.02)',
-        opacity: ready ? 1 : 0.55,
-        cursor: ready ? 'pointer' : 'not-allowed',
+        cursor: 'pointer',
       }}
     >
       <span
@@ -392,7 +413,7 @@ export function CommandEntry(props: CommandEntryProps): ReactNode {
       >
         {hint}
       </span>
-    </div>
+    </button>
   )
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "dsh-usage-cmdkit",
   "version": "0.1.0",
-  "description": "DSH Web 本地插件：右侧栏用量遥测（Usage）+ 全局命令面板（Commands，⌘K / Ctrl+K）。数据与配置全部留在本机。",
+  "description": "DSH Web 本地插件：右侧栏用量遥测（Usage）+ 命令面板（Commands，⌘J / Ctrl+Alt+J）。数据与配置全部留在本机。",
   "license": "MIT",
   "author": {
     "name": "xiewg1987",
@@ -66,6 +66,7 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-shortcuts",
         "@deepseek-ai/dsh-client-ui-plugin-manager",
         "@deepseek-ai/dsh-client-ui-sidebar-right"
       ]
@@ -91,6 +92,7 @@
     "@deepseek-ai/cordis-plugin-loader": "1.0.6-alpha.1",
     "@deepseek-ai/dsh-client-connection": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-locale": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-shortcuts": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.1-alpha.1",
