@@ -39,8 +39,6 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 | `PREVIEW_DEV=1` | 用 React 开发版渲染（报错带组件栈） | 关 |
 | `PREVIEW_DUMP=1` | 导出**真实渲染出来的几何**到 `design/_v6_src/layout-<tag>.json` | 关 |
 | `PREVIEW_SVG=1` | 导出页面里真正画出的 **SVG**（折线 / 表盘 / 图标）到 `design/_v6_src/svg-<tag>/` | 关 |
-| `PREVIEW_RING=1` | 导出 3D 环的**透明底 PNG**到 `design/_v6_src/ring-3d-<tag>.png` | 关 |
-| `PREVIEW_3D=1` | 强制走真 3D 环（宽版默认开） | 宽版开 |
 
 > `design/_v6_src/` 是本地工作区（不进版本库），与 `design/_v4_src/` 同理。
 
@@ -52,7 +50,6 @@ v6 起多了一条线：**Figma 里那帧是从实现导出来的**，不是照�
 node design/_v6_src/render-preview.mjs                              # 出图
 $env:PREVIEW_DUMP='1'; node design/_v6_src/render-preview.mjs       # 出几何表
 $env:PREVIEW_SVG='1'; node design/_v6_src/render-preview.mjs        # 出 SVG
-$env:PREVIEW_RING='1'; node design/_v6_src/render-preview.mjs      # 出 3D 环 PNG
 node design/_v6_src/make-figma-svg.mjs 360                          # SVG 转 Figma 能吃的形式
 node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整帧 SVG
 ```
@@ -65,13 +62,12 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 
 改实现 → 重跑脚本 → 几何与矢量照着更新。**设计稿与实现不会各走各的。**
 
-三处手工调整（其余全自动）：
+两处手工调整（其余全自动）：
 
 - **表盘**在 SVG 里是 `stroke-dasharray`，Figma 导入后会变成 4 段断弧，
   所以 Figma 侧改用原生弧形（`set_arc`，12 点钟起顺时针 36.5%）。
 - **SVG 的 CSS `transform`**（表盘的 `rotate(-90deg)`）Figma 不认，
   `make-figma-svg.mjs` 把它烘焙成 SVG 的 `transform="rotate(-90 36 36)"`。
-- **3D 环是位图**：3D 透视没法转成矢量，Figma 那边只能放 PNG（见宽版章节）。
 
 ---
 
@@ -135,9 +131,8 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 
 ## 宽版为什么是独立组件
 
-v6 视觉方向 §7 步骤 5 定了：**宽版仍是 3D 轨道矩阵，但卡片/标签语言要和竖屏统一**。
-主视觉留 3D，其余全部换成竖屏那一套：分段控件、描边药丸、两枚 StatTile、
-带微折线的分类列表、三层洞察卡、绿点底栏。
+宽版的主视觉换成了**大号扁平环**（不再是 3D 轨道矩阵），其余全部是竖屏那一套：
+分段控件、描边药丸、两枚 StatTile、带微折线的分类列表、三层洞察卡、绿点底栏。
 
 所以宽版不是「把竖屏拉宽」，而是**另一个组件**：`src/client/UsageWide.tsx` 的
 `UsageWideView`。它与 `UsageCompactView` 同构（各自管自己的编排与 sticky 底栏），
@@ -159,7 +154,7 @@ v6 视觉方向 §7 步骤 5 定了：**宽版仍是 3D 轨道矩阵，但卡片
 |---|---|---|
 | 品牌头 | 31,23 | `DSH CmdKit` 16px 700 + 右侧 `USAGE` 9px 灰字；下方一道发丝线 |
 | 控件行 | 31,88 | 左：`SegmentedControl`（`OVERVIEW / TOP / ALERTS`）；右：`WindowPills`（`TODAY / 7 DAYS / 30 DAYS`，选中项蓝青描边 + 12% 底） |
-| 主指标卡（左列） | 80,137.5 · 400×376 | **3D 环 259×259**（居中，环心是 `742.6K` + `TOKENS · 30 DAYS` + `DAILY AVG 24.8K`）+ 涨跌签 `22.7% vs prev 15d` + 30 日主折线 366×26 |
+| 主指标卡（左列） | 80,137.5 · 400×376 | **扁平环 259×259**（居中，环心是 `742.6K` + `TOKENS · 30 DAYS` + `DAILY AVG 24.8K`）+ 涨跌签 `22.7% vs prev 15d` + 30 日主折线 366×26 |
 | 洞察卡（左列） | 80,533.5 · 400×81.3 | `ⓘ INSIGHT` + 两行正文 + 右侧 64px 占比条 |
 | 指标块行（右列） | 528,137.5 · 672×75.5 | 一张卡里两枚横排 `TODAY 28.6K` / `7 DAYS 201.8K`，中间一道发丝线，各自一条 4px 微条 |
 | 分类列表（右列） | 528,233 · 672×247 | 四行：圆点 + 名称 + 行内微折线 44×12 + 绝对数 + 灰阶百分比 + 5px 细条；行间发丝线 |
@@ -183,21 +178,13 @@ v6 视觉方向 §7 步骤 5 定了：**宽版仍是 3D 轨道矩阵，但卡片
 1280×720 这一稿量出来是 **41px 的溢出 → 环压到 259**，
 内容高度与可视高度正好相等（`contentHeight === clientHeight === 672`）。
 
-## 3D 环在 Figma 里是位图
+## 扁平环在 Figma 里是矢量
 
-3D 透视没法转成矢量，Figma 那边只能放 PNG。但**文字必须还是可编辑的文本节点**——
-环心的总数与环外的百分比标签都是 DOM 覆盖层，不在 canvas 里。
+环是纯 SVG，所以 `PREVIEW_SVG=1` 直接把那一整个 `<svg>` 导出来
+（`svg-1280/ring-main.svg`，259×259），跟着整帧 SVG 一次 `import_svg` 就进去了。
 
-所以 `PREVIEW_RING=1` 单独把 canvas 那一层抠成**透明底 PNG**
-（`ring-3d-1280.png`，518×518，落在 150.5,164.5，CSS 尺寸 259×259）：
-
-- 取法是把 `canvas.toDataURL()` 挂进 `requestAnimationFrame`——
-  排在 three 的渲染回调之后、浏览器合成之前，拿到的就是刚画完的那一帧
-  （`preserveDrawingBuffer` 没开，晚一帧读回来就是空的）。
-- 透明底靠 three 的 `alpha: true`；脚本还会拿角落像素的 alpha 探针自检。
-
-Figma 里这张图放在**卡片之上、环心文字之下**——所以要把它插到整帧 SVG 的
-第 17 个图层位置，不是放在最上层。
+不用位图，也不用单独插图层——这是拿掉 3D 之后最直接的好处：
+**稿子里的每一个元素都是矢量，文字也还是可编辑的文本节点。**
 
 ## 视觉规矩（与竖屏同源）
 
@@ -210,7 +197,6 @@ Figma 里这张图放在**卡片之上、环心文字之下**——所以要把�
 
 ## 还没做的
 
-- **`IconGauge`（表盘图标）已定义但没使用**：表盘用 SVG 环画，图标留给别的场景。
 - **Figma 变量与组件还没建**：v6 视觉方向 §7 步骤 2、3 说要先建变量与 9 个组件，
   实际是把**实现导出的几何**一次性搭成帧——稿子与实现同源已经达成，
   但「可复用组件」这件事还没做。

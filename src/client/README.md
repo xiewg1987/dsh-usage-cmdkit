@@ -10,13 +10,11 @@
 |------|------|
 | `index.ts` | 浏览器半入口：注册 locale 字典、右栏 tab 类型与两个 seat |
 | `UsageDashboard.tsx` | 用量面板的调度层：量面板宽度、选布局、传参（本身不画版面） |
-| `UsageWide.tsx` | 宽版（≥900px）：3D 轨道矩阵 + 两列卡片（`UsageWideView`） |
+| `UsageWide.tsx` | 宽版（≥900px）：大号扁平环 + 两列卡片（`UsageWideView`） |
 | `UsageCompact.tsx` | 窄版（<900px）：竖屏构图（`UsageCompactView`） |
 | `UsageChrome.tsx` | 外框件：品牌头、分段控件、时间窗、洞察卡、底栏 |
 | `UsageMeters.tsx` | 计量件：指标块、涨跌签、折线、表盘、分段控件 |
-| `UsageRing.tsx` | 主环：四段弧、环心总览、环外图例 |
-| `UsageRing3D.tsx` | 3D 环宿主：canvas + DOM 读数覆盖层 + 降级到 SVG 环 |
-| `usage-3d.ts` | three.js 场景：鳍片环、底轨、刻度、数据轨、读取头 |
+| `UsageRing.tsx` | 主环：四段弧、环心总览、环外百分比 |
 | `UsageTelemetry.tsx` | 四行遥测列表：名字与数量中性色，条形用品类色 |
 | `usage-theme.ts` | 设计令牌：近黑底、单一强调色、四个品类的玻璃渐变 |
 | `usage-buttons.ts` | 底栏 ghost 按钮样式（预览与实现共用同一份） |
@@ -33,7 +31,7 @@
 面板自带深色表面，不依赖宿主明暗主题。
 
 布局由面板**实测宽度**决定（`ResizeObserver` 量面板自己）：
-宽到 900px 以上用左环右数据的 3D 轨道矩阵版，
+宽到 900px 以上用左环右数据的大环版，
 不到 900px 用竖屏那一版（大数 + 表盘 + 指标块 + 分类列表）。
 
 不看 `useTabInfo().sidebar.fullscreen`：那个标志只说明「面板盖住了整块视口」，
