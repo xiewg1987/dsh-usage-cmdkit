@@ -1,20 +1,23 @@
 /**
  * 用量主环：四个 token 桶各占一段的粗软进度弧，环心是总览数字。
  *
- * 一条极淡底环 + 四段有间隙的弧，弧自带顶光玻璃渐变与外发光 bloom，
- * 环心一枚柔和能量核。宽版（≥900px）的主视觉。
+ * 一条极淡底环 + 四段有间隙的弧，弧自带顶光玻璃渐变。宽版（≥900px）的主视觉。
+ *
+ * **弧上不发光**：v6 §6 明确不要「霓虹多色大环」。
+ * 四色是环段的合法用色（见 `usage-theme.ts` 的令牌说明：四色只出现在环段、圆点、细条），
+ * 但一圈彩色辉光会把整个面板推回霓虹那一版——所以只留色，不留光。
  *
  * 几何全部按像素写进 viewBox（viewBox 与像素 1:1），
  * 字号不随缩放失真——这是把设计稿落成产品面板的关键。
  *
  * 动效（见 `design/motion-spec.md`）：
  * - 入场时底环先亮，四段色弧按蓝→绿→紫→橙依次描边生长，环心数字同时递增。
- * - 入场结束后静止，只有环外柔光以 4s 周期极慢呼吸（亮度 ±5%）。
+ * - 入场结束后完全静止：没有呼吸，也没有呼吸灯。
  * - 刷新时色弧角度平滑插值，**不重播**入场。
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import type { UsageBuckets } from '../protocol.js'
-import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT, rgba } from './usage-theme.js'
+import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT } from './usage-theme.js'
 import { EASE_LINEAR, EASE_OUT, useCountUp } from './usage-motion.js'
 import { RING_KEYS, placeRingLabels, ringSegments, type RingLabel } from './usage-ring-geometry.js'
 
@@ -119,11 +122,10 @@ export function UsageRing(props: UsageRingProps): ReactNode {
   // 环外标签先挑一遍：太小的不标，角距太近的只留占比大的那个。
   const visibleLabels = placeRingLabels(segments, labels ?? [])
 
-  // 入场用的 ref：色弧（本体 + 镜面高光各一组）、底环、柔光层。
+  // 入场用的 ref：色弧（本体 + 镜面高光各一组）、底环。
   const arcRefs = useRef<(SVGCircleElement | null)[]>([])
   const specRefs = useRef<(SVGCircleElement | null)[]>([])
   const trackRef = useRef<SVGCircleElement | null>(null)
-  const haloRef = useRef<SVGCircleElement | null>(null)
 
   // 入场只播一次：之后刷新走 CSS transition 的插值，不重播。
   const entered = useRef(false)
@@ -161,11 +163,6 @@ export function UsageRing(props: UsageRingProps): ReactNode {
       }
     })
 
-    // 柔光呼吸：4s 一周期，亮度只在 ±5% 内动，且是唯一的常驻动画。
-    haloRef.current?.animate(
-      [{ opacity: 0.95 }, { opacity: 1 }, { opacity: 0.95 }],
-      { duration: 4000, iterations: Infinity, easing: 'ease-in-out' },
-    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -195,16 +192,6 @@ export function UsageRing(props: UsageRingProps): ReactNode {
             <stop offset="0.38" stopColor="#ffffff" stopOpacity={0.03} />
             <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
           </linearGradient>
-          <radialGradient id={`${uid}-halo`}>
-            <stop offset="0" stopColor={accent} stopOpacity={0.09} />
-            <stop offset="0.6" stopColor={accent} stopOpacity={0.03} />
-            <stop offset="1" stopColor={accent} stopOpacity={0} />
-          </radialGradient>
-          <radialGradient id={`${uid}-core`}>
-            <stop offset="0" stopColor="#bfe0ff" stopOpacity={0.22} />
-            <stop offset="0.45" stopColor={accent} stopOpacity={0.07} />
-            <stop offset="1" stopColor={accent} stopOpacity={0} />
-          </radialGradient>
         </defs>
 
         {/* 底环：缺口也留有轨道，进度才读得出来。 */}
@@ -218,10 +205,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
           strokeOpacity={0.06}
           strokeWidth={stroke}
         />
-        {/* 能量核：两层柔光球，不做实心球。 */}
-        <circle ref={haloRef} cx={center} cy={center} r={outer} fill={`url(#${uid}-halo)`} />
-        <circle cx={center} cy={center} r={size * 0.23} fill={`url(#${uid}-core)`} />
-        {/* 四段弧：玻璃渐变 + 外发光 bloom。
+        {/* 四段弧：玻璃渐变，不发光。
             pathLength 把周长归一成 1，弧长与偏移就与环径无关——
             环径随一屏高度变小时，弧不会错位。 */}
         {segments.map((segment) => {
@@ -240,10 +224,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
               strokeDasharray={`${segment.share} 1`}
               strokeDashoffset={-(offset / circumference)}
               transform={`rotate(-90 ${center} ${center})`}
-              style={{
-                filter: `drop-shadow(0 0 ${size * 0.022}px ${rgba(BUCKET_GLASS[segment.index].base, 0.42)})`,
-                transition: `stroke-dasharray 380ms ${EASE_OUT}`,
-              }}
+              style={{ transition: `stroke-dasharray 380ms ${EASE_OUT}` }}
             />
           )
         })}
@@ -341,7 +322,7 @@ export function UsageRing(props: UsageRingProps): ReactNode {
               fontSize: Math.max(10, size * 0.03),
               fontWeight: 600,
               letterSpacing: '0.02em',
-              color: BUCKET_GLASS[label.index].base,
+              color: MUTED,
               fontVariantNumeric: 'tabular-nums',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
