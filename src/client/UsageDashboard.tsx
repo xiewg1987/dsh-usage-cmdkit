@@ -40,6 +40,7 @@ import {
   WindowPills,
 } from './UsageChrome.js'
 import { TIMING, dropIn, riseIn } from './usage-motion.js'
+import { IconRefresh, IconTrash } from './usage-icons.js'
 import { hitRate } from './usage-metrics.js'
 import {
   ACCENT,
@@ -343,6 +344,9 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
    *
    * 竖屏那一版用紧凑档：状态行（仓库名 · 同步 · 本机 · 版本号）必须整行放得下，
    * 动作按钮再宽一点就会把版本号挤成省略号。
+   *
+   * 按钮带图标（刷新 ↻ / 清空 🗑，都是 Lucide 路径），但**不省掉文字**：
+   * 「清空」是不可撤销的操作，光靠一个垃圾桶图标认不出会点到什么。
    */
   const ghostButton = {
     font: 'inherit',
@@ -355,11 +359,15 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     background: 'transparent',
     color: MUTED,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
   } as const
 
   const actions = (
     <>
       <button type="button" data-usage-refresh="" style={ghostButton} onClick={() => void loadUsage()}>
+        <IconRefresh size={11} color={MUTED} strokeWidth={2} />
         {t('action.refresh')}
       </button>
       <button
@@ -369,6 +377,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         disabled={clearing}
         onClick={() => void clearUsage()}
       >
+        <IconTrash size={11} color={MUTED} strokeWidth={2} />
         {clearing ? t('action.clearing') : t('action.clear')}
       </button>
     </>

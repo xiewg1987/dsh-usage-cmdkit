@@ -72,7 +72,7 @@ node design/_v6_src/make-figma-svg.mjs       # SVG 转 Figma 能吃的形式
 | 指标块行 | 一张卡里两枚横排：`TODAY 28.6K` / `7 DAYS 201.8K`，中间一道发丝线，各自一条 4px 微条 | `UsageMeters.tsx` `StatTile` |
 | 分类列表 | 四行 × 44：圆点 + 名称 + **行内微折线 44×12** + 绝对数 + 灰阶百分比 + 5px 细条；**行间发丝线** | `UsageTelemetry.tsx`（`variant="flat"`，`series` prop） |
 | 洞察卡 | `ⓘ INSIGHT` 小标题 + 两行正文 + 右侧 64px 占比条 | `UsageChrome.tsx` `Insight variant="card"`（新增 `title` / `bar`） |
-| 状态条 | 绿点 + `synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（sticky 常驻） | `UsageChrome.tsx` `StatusFooter`（新增 `dot` / `version`） |
+| 状态条 | 绿点 + `synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（各带一枚 11px Lucide 图标，sticky 常驻） | `UsageChrome.tsx` `StatusFooter`（新增 `dot` / `version`） |
 
 ## 数据口径：折线与涨跌签从哪来
 
@@ -93,6 +93,10 @@ node design/_v6_src/make-figma-svg.mjs       # SVG 转 Figma 能吃的形式
 - **品类色**（蓝 / 绿 / 紫 / 橙）只出现在**圆点与细条**上，百分比一律灰阶。
 - **图标取 Lucide**（ISC），路径原样搬进 `src/client/usage-icons.tsx`，
   Figma 里用同一份 SVG 导入——不手画、不加 npm 依赖。
+  底栏两枚按钮也带图标（`refresh-cw` / `trash-2`，11px），
+  但**不省掉文字**：清空是不可撤销的操作，光一个垃圾桶认不出会点到什么。
+  图标让底栏按钮从 51.5 / 40.8px 宽涨到 66.5 / 55.8px（+15 = 图标 11 + 间隙 4），
+  整组仍右对齐到 343px（面板右缘），左边界从 244.7 退到 214.7。
 - **留白集中在下半段**：内容一屏装下（`contentHeight === clientHeight === 768`），
   洞察卡与底栏之间是刻意留的空。
 - **底栏 sticky**：面板比视口高时状态条仍贴在可视区底部
@@ -112,5 +116,5 @@ node design/_v6_src/make-figma-svg.mjs       # SVG 转 Figma 能吃的形式
 ## 还没做的
 
 - **宽面板（≥900px）仍是 3D 轨道矩阵双栏**：卡片 / 标签语言还没跟竖屏统一。
+  v6 视觉方向只写了竖屏（360×800），宽面板这一轮**刻意不动**。
 - **`IconGauge`（表盘图标）已定义但没使用**：表盘用 SVG 环画，图标留给别的场景。
-- **`trash-2` 图标没取到**：清空按钮目前仍是文字（Lucide 拉取时网络代理间歇性拒连）。
