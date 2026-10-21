@@ -16,10 +16,10 @@
  * - 刷新时色弧角度平滑插值，**不重播**入场。
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import type { UsageBuckets } from '../protocol.js'
-import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT } from './usage-theme.js'
-import { EASE_LINEAR, EASE_OUT, useCountUp } from './usage-motion.js'
-import { RING_KEYS, placeRingLabels, ringSegments, type RingLabel } from './usage-ring-geometry.js'
+import type { UsageBuckets } from '../../protocol.js'
+import { ACCENT, BUCKET_GLASS, FONT_SANS, MUTED, TEXT } from '../theme/usage-theme.js'
+import { EASE_LINEAR, EASE_OUT, useCountUp } from '../motion/usage-motion.js'
+import { RING_KEYS, placeRingLabels, ringSegments, type RingLabel } from '../data/usage-ring-geometry.js'
 
 /** 四个桶的固定顺序：与环上分段、条形、环外标签同序。 */
 export { RING_KEYS }

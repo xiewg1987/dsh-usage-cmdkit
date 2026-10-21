@@ -10,7 +10,7 @@
  * 同一份模块实例贯穿整个页面。
  */
 import { useSyncExternalStore } from 'react'
-import type { UsageSummary } from '../protocol.js'
+import type { UsageSummary } from '../../protocol.js'
 import { clearUsageStats, fetchUsageSummary } from './usage-client.js'
 
 /** 可切换的时间窗。 */

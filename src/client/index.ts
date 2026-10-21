@@ -18,7 +18,7 @@
  * patch.dev.yml 若写 name: './src/index.ts'，则不会加载本半侧；
  * 要用右栏 Dashboard 请 `dsh plugin add` 本包（cordis.patch.yml 已是裸包名）。
  *
- * 全局标识的取名规则（详见 docs/03-remotes-and-client.md）：
+ * 全局标识的取名规则（详见 docs/steps/03-remotes-and-client.md）：
  * - `TAB_ID` 是**实现身份**，取包名，全球唯一。
  * - `TAB_KIND` 是**类型判别符**，按 harness 惯例取短名（`guide` / `files` / `terminal`），
  *   **不要改名**：右栏已打开的 Tab 会把 kind 持久化下来，改名会让它们一律变成
@@ -34,9 +34,9 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { UsageDashboard } from './UsageDashboard.js'
-import { UsageTitle } from './UsageTitle.js'
-import { en, zh, type UsageKey } from './locales.js'
+import { UsageDashboard } from './views/UsageDashboard.js'
+import { UsageTitle } from './components/UsageTitle.js'
+import { en, zh, type UsageKey } from './i18n/locales.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {

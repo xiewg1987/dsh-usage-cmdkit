@@ -8,10 +8,10 @@
  * 进度条同时从 0 宽填到目标占比；刷新时条宽平滑插值，不重播。
  */
 import { useEffect, useRef, type ReactNode } from 'react'
-import type { UsageBuckets } from '../protocol.js'
-import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from './usage-theme.js'
+import type { UsageBuckets } from '../../protocol.js'
+import { BUCKET_GLASS, MUTED, TEXT, formatCount, percentOf } from '../theme/usage-theme.js'
 import { Sparkline } from './UsageMeters.js'
-import { EASE_LINEAR, EASE_OUT, riseIn } from './usage-motion.js'
+import { EASE_LINEAR, EASE_OUT, riseIn } from '../motion/usage-motion.js'
 import { RING_KEYS } from './UsageRing.js'
 
 /** 列表的两种排版密度：窄栏里的小字、宽面板时的大字。 */

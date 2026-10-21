@@ -9,7 +9,7 @@ import {
   USAGE_SUMMARY_ROUTE,
   isUsageSummary,
   type UsageSummary,
-} from '../protocol.js'
+} from '../../protocol.js'
 
 /**
  * 读一次用量汇总。

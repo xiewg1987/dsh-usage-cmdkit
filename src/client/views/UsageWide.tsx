@@ -21,19 +21,19 @@
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
 import {
   BrandHeader,
   Insight,
   ProviderList,
   StatusFooter,
   WindowPills,
-} from './UsageChrome.js'
-import { UsageRing, RING_KEYS, type RingLabel } from './UsageRing.js'
-import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
-import { DeltaChip, SegmentedControl, Sparkline, StatTile } from './UsageMeters.js'
-import { dailySeries, dailyTotals, windowDelta } from './usage-metrics.js'
-import { dropIn, riseIn } from './usage-motion.js'
+} from '../components/UsageChrome.js'
+import { UsageRing, RING_KEYS, type RingLabel } from '../components/UsageRing.js'
+import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry.js'
+import { DeltaChip, SegmentedControl, Sparkline, StatTile } from '../components/UsageMeters.js'
+import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
+import { dropIn, riseIn } from '../motion/usage-motion.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -47,8 +47,8 @@ import {
   formatCompact,
   formatCount,
   percentOf,
-} from './usage-theme.js'
-import type { UsageTranslate } from './locales.js'
+} from '../theme/usage-theme.js'
+import type { UsageTranslate } from '../i18n/locales.js'
 
 /** 宽版面板的入场节拍（毫秒）。 */
 export interface WideTiming {

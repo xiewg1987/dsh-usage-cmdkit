@@ -21,15 +21,15 @@
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useRef, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint } from '../protocol.js'
+import type { UsageBuckets, UsageDailyPoint } from '../../protocol.js'
 import {
   BrandHeader,
   Insight,
   StatusFooter,
   WindowPills,
-} from './UsageChrome.js'
-import { UsageTelemetry, type TelemetryName } from './UsageTelemetry.js'
-import { DeltaChip, MiniGauge, SegmentedControl, Sparkline, StatTile } from './UsageMeters.js'
+} from '../components/UsageChrome.js'
+import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry.js'
+import { DeltaChip, MiniGauge, SegmentedControl, Sparkline, StatTile } from '../components/UsageMeters.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -44,10 +44,10 @@ import {
   TEXT,
   formatCompact,
   percentOf,
-} from './usage-theme.js'
-import { dropIn, riseIn, useCountUp } from './usage-motion.js'
-import { dailySeries, dailyTotals, windowDelta } from './usage-metrics.js'
-import type { UsageTranslate } from './locales.js'
+} from '../theme/usage-theme.js'
+import { dropIn, riseIn, useCountUp } from '../motion/usage-motion.js'
+import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
+import type { UsageTranslate } from '../i18n/locales.js'
 
 /** 竖屏面板的入场节拍（毫秒）。 */
 export interface CompactTiming {

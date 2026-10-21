@@ -29,17 +29,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { UsageBuckets, UsageProviderTotal } from '../protocol.js'
-import { RING_KEYS } from './UsageRing.js'
+import type { UsageBuckets, UsageProviderTotal } from '../../protocol.js'
+import { RING_KEYS } from '../components/UsageRing.js'
 import { UsageCompactView } from './UsageCompact.js'
 import { UsageWideView } from './UsageWide.js'
-import type { TelemetryName } from './UsageTelemetry.js'
-import { IconRefresh, IconTrash } from './usage-icons.js'
-import { hitRate } from './usage-metrics.js'
-import { TIMING } from './usage-motion.js'
-import { ghostButtonStyle } from './usage-buttons.js'
-import { MUTED } from './usage-theme.js'
-import { PLUGIN_VERSION } from './usage-version.js'
+import type { TelemetryName } from '../components/UsageTelemetry.js'
+import { IconRefresh, IconTrash } from '../components/usage-icons.js'
+import { hitRate } from '../data/usage-metrics.js'
+import { TIMING } from '../motion/usage-motion.js'
+import { ghostButtonStyle } from '../theme/usage-buttons.js'
+import { MUTED } from '../theme/usage-theme.js'
+import { PLUGIN_VERSION } from '../usage-version.js'
 import {
   clearUsage,
   ensureUsageLoaded,
@@ -47,7 +47,7 @@ import {
   setUsageRange,
   useUsageState,
   type UsageRange,
-} from './usage-state.js'
+} from '../data/usage-state.js'
 /** Props 由 slot 绑定与 locale 绑定组成，不要手工窄化。 */
 export type UsageDashboardProps =
   PropsRuntime<'sidebar.right.pane.tab'>

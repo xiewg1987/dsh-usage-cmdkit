@@ -20,7 +20,7 @@ import {
   RING_TRACK,
   TEXT,
   rgba,
-} from './usage-theme.js'
+} from '../theme/usage-theme.js'
 import { IconDown, IconUp } from './usage-icons.js'
 
 /** 折线的属性。 */

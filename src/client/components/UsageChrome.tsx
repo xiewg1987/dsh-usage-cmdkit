@@ -25,7 +25,7 @@ import {
   POSITIVE,
   TEXT,
   rgba,
-} from './usage-theme.js'
+} from '../theme/usage-theme.js'
 import { IconInfo } from './usage-icons.js'
 
 /** 品牌头的属性。 */

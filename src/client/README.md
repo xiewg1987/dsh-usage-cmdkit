@@ -1,30 +1,36 @@
 # Client 半（浏览器）
 
-右栏的**用量 Tab**。步骤 3 见 **docs/03-remotes-and-client.md**。
+右栏的**用量 Tab**。步骤 3 见 **docs/steps/03-remotes-and-client.md**。
 
 > 一个面：用量面板。命令面板与费用估算都已从插件里去掉——
 > 前者会把插件的定位撑成「命令面板」，后者报的是猜出来的钱。
 > 插件现在只做一件事：把本机真实的 token 用量摊在右栏里。
 
-| 文件 | 作用 |
-|------|------|
-| `index.ts` | 浏览器半入口：注册 locale 字典、右栏 tab 类型与两个 seat |
-| `UsageDashboard.tsx` | 用量面板的调度层：量面板宽度、选布局、传参（本身不画版面） |
-| `UsageWide.tsx` | 宽版（≥900px）：大号扁平环 + 两列卡片（`UsageWideView`） |
-| `UsageCompact.tsx` | 窄版（<900px）：竖屏构图（`UsageCompactView`） |
-| `UsageChrome.tsx` | 外框件：品牌头、分段控件、时间窗、洞察卡、底栏 |
-| `UsageMeters.tsx` | 计量件：指标块、涨跌签、折线、表盘、分段控件 |
-| `UsageRing.tsx` | 主环：四段弧、环心总览、环外百分比 |
-| `UsageTelemetry.tsx` | 四行遥测列表：名字与数量中性色，条形用品类色 |
-| `usage-theme.ts` | 设计令牌：近黑底、单一强调色、四个品类的玻璃渐变 |
-| `usage-buttons.ts` | 底栏 ghost 按钮样式（预览与实现共用同一份） |
-| `UsageTitle.tsx` | Tab 的标题 |
-| `usage-client.ts` | 读汇总 / 清空两个路由 |
-| `usage-state.ts` | 共享状态：用量数据、时间窗、清空中 |
-| `usage-metrics.ts` | 比率算式、日序列折线、窗口涨跌（窄宽共用） |
-| `usage-motion.ts` | 入场编排的时间表与 Web Animations 原语 |
-| `usage-version.ts` | 构建期注入的包版本号 |
-| `locales.ts` | 中英文案（zh 是键集的事实来源） |
+| 目录 | 文件 | 作用 |
+|------|------|------|
+| — | `index.ts` | 浏览器半入口：注册 locale 字典、右栏 tab 类型与两个 seat |
+| — | `usage-version.ts` | 构建期注入的包版本号 |
+| `views/` | `UsageDashboard.tsx` | 用量面板的调度层：量面板宽度、选布局、传参（本身不画版面） |
+| `views/` | `UsageWide.tsx` | 宽版（≥900px）：大号扁平环 + 两列卡片（`UsageWideView`） |
+| `views/` | `UsageCompact.tsx` | 窄版（<900px）：竖屏构图（`UsageCompactView`） |
+| `components/` | `UsageChrome.tsx` | 外框件：品牌头、分段控件、时间窗、洞察卡、底栏 |
+| `components/` | `UsageMeters.tsx` | 计量件：指标块、涨跌签、折线、表盘、分段控件 |
+| `components/` | `UsageRing.tsx` | 主环：四段弧、环心总览、环外百分比 |
+| `components/` | `UsageTelemetry.tsx` | 四行遥测列表：名字与数量中性色，条形用品类色 |
+| `components/` | `UsageTitle.tsx` | Tab 的标题 |
+| `components/` | `usage-icons.tsx` | Lucide 图标路径（ISC），原样搬进代码 |
+| `data/` | `usage-client.ts` | 读汇总 / 清空两个路由 |
+| `data/` | `usage-state.ts` | 共享状态：用量数据、时间窗、清空中 |
+| `data/` | `usage-metrics.ts` | 比率算式、日序列折线、窗口涨跌（窄宽共用） |
+| `data/` | `usage-ring-geometry.ts` | 环与分类列表共用的几何：桶序、分段、标签摆位 |
+| `theme/` | `usage-theme.ts` | 设计令牌：近黑底、单一强调色、四个品类的玻璃渐变 |
+| `theme/` | `usage-buttons.ts` | 底栏 ghost 按钮样式（预览与实现共用同一份） |
+| `motion/` | `usage-motion.ts` | 入场编排的时间表与 Web Animations 原语 |
+| `i18n/` | `locales.ts` | 中英文案（zh 是键集的事实来源） |
+
+按**类型**分目录，不按文件名平铺：`views/` 是两套版面与调度层，
+`components/` 是画出来的零件，`data/` 是读数与算法，`theme/` 是令牌，
+`motion/` 是动效，`i18n/` 是文案。根目录只留入口与构建期常量。
 
 视觉基调是「暗色金融终端的密度，Apple 备忘录的克制」：近黑底、
 界面强调色只有蓝青一种，四色只出现在环段、圆点与细条上，正文文字一律中性灰阶。

@@ -8,7 +8,7 @@
  * 面板上摆一个带 `≈` 的金额，看起来像账单，其实只是个量级猜测，
  * 猜错了还要背锅。**本插件只报 token，不报钱。**
  */
-import type { UsageBuckets, UsageDailyPoint } from '../protocol.js'
+import type { UsageBuckets, UsageDailyPoint } from '../../protocol.js'
 
 /**
  * 缓存命中率：缓存读取占「输入总量」的比例。

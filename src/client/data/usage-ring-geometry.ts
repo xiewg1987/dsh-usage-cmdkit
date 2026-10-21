@@ -7,7 +7,7 @@
  *
  * 角度约定：十二点方向是 -π/2，顺时针铺开（与 SVG 环的 dashoffset 一致）。
  */
-import type { UsageBuckets } from '../protocol.js'
+import type { UsageBuckets } from '../../protocol.js'
 
 /** 四个桶的固定顺序：与环上分段、条形、环外标签同序。 */
 export const RING_KEYS = [
