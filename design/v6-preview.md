@@ -111,6 +111,54 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 - **SVG 的 CSS `transform`**（表盘的 `rotate(-90deg)`）Figma 不认，
   `make-figma-svg.mjs` 把它烘焙成 SVG 的 `transform="rotate(-90 36 36)"`。
 
+## ArtCraft 稿也走同一条线（原生节点，不是整帧贴图）
+
+本地设计工具（ArtCraft / FigCraft）里的稿子 `DSH CmdKit · Usage 360×800 (MCP)`
+也走「从实现导出 → 脚本建原生节点」这条路，**不是照着成图手摆的**。
+
+**为什么不整帧 `import_svg`**：整帧 SVG 导入会把所有文字变成矢量路径——
+看着一样，但一个字都改不了，再也不知道稿子里哪块是什么。
+所以走**原生节点**：文字仍是文字，图层带语义名（`CK/Card/BYMODEL`、`CK/Text/Share7DPT`…）。
+
+三个脚本各管一段：
+
+```
+design/_v6_src/render-preview.mjs        # 出图 + 导几何表 + 导 SVG
+design/_v6_src/make-artcraft-nodes.mjs   # 几何表 → MCP 建节点指令
+design/_v6_src/apply-artcraft.mjs        # 指令 → FigCraft MCP → 画布
+design/_v6_src/figcraft-mcp-call.mjs     # FigCraft MCP 的最小 stdio 客户端
+```
+
+跑一遍：
+
+```powershell
+$env:PREVIEW_ENTRY='preview-360-top'; $env:PREVIEW_DUMP='1'; $env:PREVIEW_SVG='1'
+node design/_v6_src/render-preview.mjs
+node design/_v6_src/make-artcraft-nodes.mjs 360-top design/_v6_src/artcraft-360-top.json
+$env:FIGCRAFT_STAGE_X='2500'
+node design/_v6_src/apply-artcraft.mjs 360-top "CK/Screen/Top"      # ��在空白处
+node design/_v6_src/apply-artcraft.mjs list                          # 看现有屏与 id
+node design/_v6_src/apply-artcraft.mjs swap <新id> <旧id> <x> <名字> # 核对过再换上
+```
+
+**先建在空白处、核对过再换上**：新屏与旧屏并存，截图比对没问题了才删旧屏搬新屏，
+中途任何一步出错都不会出现「一屏都没有」的空档。
+
+几条踩过的坑（都在脚本里写清了原因）：
+
+- **元素盒子 ≠ 文字盒**。环里那个百分比，元素盒是 104×104 的整个环，
+  照抄元素盒数字就跑到角上了。所以导几何时用 Range 量**文字自己的盒**（`tx`/`ty`）。
+- **FigCraft 的矩形装不了图层**。进度条的「槽」里有填充条，槽就得是 frame；
+  纯色块才是矩形。判错会报 `can't contain layers`。
+- **文本节点装不了图层**。实现里 `<span>TOP CONSUMERS · <span>30D</span></span>`
+  那种一行套一段的，子 span 要提到父层，自己成为平级的文本节点。
+- **右对齐的数字要用元素盒**（不是文字盒）——要的是**右边缘**对齐，
+  用文字盒的话框的右缘会推到文字右边，数字反而被卡片裁掉半截。
+- **MCP 的 `run_command` 传数组参数会被序列化坏**（`ids: [3]` → `{"item":3}`），
+  删除得先 `select` 再调不带 `ids` 的命令；而且 `edit.delete` 走选区时**多选也不灵**，一次删一个。
+- **attach 跟着「当前活动标签页」走**。用户切到别的文档，脚本就会把稿子建到那份文档里。
+  所以脚本自己先找目标文档，找不到就停——宁可不做，也不能建错地方。
+
 ---
 
 # 竖屏（360×800）
@@ -372,6 +420,11 @@ Top 屏多一张 CACHE HIT 卡和一张 MODEL TREND 卡，告警屏多一张 RHY
 
 ## 还没做的
 
+- **ArtCraft 稿已经跟上了**：`DSH CmdKit · Usage 360×800 (MCP)` 里的六屏
+  （总览 / Top / 告警 + 三屏骨架）都按**实现导出的几何**重搭过一遍，
+  走的是上面「原生节点」那条线——文字还是文字，图层带语义名，不是照着成图手摆的。
+  以后改实现 → 重跑脚本 → 稿子重搭，稿子不会再落后好几轮。
+  （Figma 那边还没跟上，那三条都还是 Figma 的事。）
 - **Figma 变量与组件还没建**：v6 视觉方向 §7 步骤 2、3 说要先建变量与 9 个组件，
   实际是把**实现导出的几何**一次性搭成帧——稿子与实现同源已经达成，
   但「可复用组件」这件事还没做。
@@ -379,6 +432,6 @@ Top 屏多一张 CACHE HIT 卡和一张 MODEL TREND 卡，告警屏多一张 RHY
   几何说明页 `44:2626`（Ring / 3D 轨道矩阵）也待清；
   这一轮压掉 bloom 后的新整帧 SVG 也还没导进去。
   等切回对应 Figma 文件、figwright 面板开着时一起收。
-- **Figma 稿子上还没有这两组新统计**：`TOP` / `ALERTS` 两屏在 Figma 那边
-  仍是上一轮之前的样子，分模型命中率与节律只进了实现与成图。
+- **Figma 稿子上还没有这三组新统计**：`TOP` / `ALERTS` 两屏在 Figma 那边
+  仍是上一轮之前的样子，分模型命中率、节律、模型走向只进了实现与成图。
   补的时候按成图导出的几何走（`PREVIEW_DUMP=1`）。
