@@ -1,11 +1,11 @@
-# dsh-usage-cmdkit
+# dsh-usage-meters
 
 > DSH Web 的本地插件：右侧栏的**用量遥测**（Usage）。
 
 *Local DSH Web plugin — token usage telemetry in the DSH Web sidebar.*
 
-[![npm](https://img.shields.io/npm/v/dsh-usage-cmdkit.svg)](https://www.npmjs.com/package/dsh-usage-cmdkit)
-[![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/dsh-usage-meters.svg)](https://www.npmjs.com/package/dsh-usage-meters)
+[![license](https://img.shields.io/badge/license-MIT-4c8dff.svg)](https://github.com/xiewg1987/dsh-usage-meters/blob/main/LICENSE)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--alpha-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 一个扩展，一个面：
@@ -83,17 +83,17 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 
 | 宽面板（大号扁平环，1280×720） | 窄栏（竖屏，360×800） |
 |---|---|
-| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) |
+| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-360x800.png) |
 
 > 这几张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
 > `src/client/views/UsageWide.tsx` / `src/client/views/UsageCompact.tsx` 后用 Chrome 截的），
 > 不是另画的静态稿。逐块对照表、视觉规矩与**实现偏差**见
-> [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
+> [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-preview.md)。
 
 ### v6 · 窄栏重做（360×800）
 
 窄栏（不到 900px 的右栏）从 v5.1 的「金融竖屏」再改一版，按
-[design/v6-visual-direction.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-visual-direction.md)
+[design/v6-visual-direction.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-visual-direction.md)
 重排：**上密下疏**，大数下面加了涨跌签与折线，右侧的环改成命中率表盘，
 指标卡从一枚高卡变成两枚横排，分类行加了行内微折线，洞察卡变成
 「小标题 + 说明 + 占比条」三层，底栏加了状态点。
@@ -105,7 +105,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 
 | 总览 | Top | 告警 | Loading 骨架 |
 |---|---|---|---|
-| ![总览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png) | ![Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-360x800.png) | ![告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-360x800.png) | ![Loading](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-loading-360x800.png) |
+| ![总览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-360x800.png) | ![Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-360x800.png) | ![告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-360x800.png) | ![Loading](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-loading-360x800.png) |
 
 竖屏整屏只留**一种彩色**：四个 token 桶用同一色相的四档亮度表示
 （不是四种色相并排），涨跌签、指标条、洞察条一律走界面蓝青。
@@ -127,7 +127,7 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 它那两行本来就是模型行按 provider 求和的结果，信息是重复的。
 三屏都核对过高度，一屏装得下，不切不裁。
 
-> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
+> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-preview.md)。
 
 ### v6 · 宽栏重做（1280×720）
 
@@ -136,13 +136,13 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 满屏网格与发光规则线删干净。主视觉是一枚大号扁平环（不再是 3D 轨道矩阵），
 环**只留色、不留外发光**——四段桶色弧是 v6 令牌允许的位置，但弧上没有辉光、环心没有能量核。
 
-![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
+![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png)
 
 宽版也是三屏。Top 屏多一张 `CACHE HIT` 卡和一张 `MODEL TREND` 卡，告警屏多一张 `RHYTHM` 卡：
 
 | 宽版 Top | 宽版告警 |
 |---|---|
-| ![宽版 Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x768.png) | ![宽版告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-1280x960.png) |
+| ![宽版 Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-1280x768.png) | ![宽版告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-1280x960.png) |
 
 > 宽版是**独立组件**（`src/client/views/UsageWide.tsx`），不是把竖屏拉宽：
 > 环的大小是**量出来的**（面板比一屏高多少就把环压小多少），
@@ -170,16 +170,16 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 
 ```powershell
 cd D:\ScriptProject\deepseek-harness
-pnpm dsh plugin --profile web add github:xiewg1987/dsh-usage-cmdkit
+pnpm dsh plugin --profile web add github:xiewg1987/dsh-usage-meters
 pnpm dsh web
 ```
 
 从 npm 装（发布后）：
 
 ```powershell
-npm i -g dsh-usage-cmdkit
+npm i -g dsh-usage-meters
 cd D:\ScriptProject\deepseek-harness
-pnpm dsh plugin --profile web add dsh-usage-cmdkit
+pnpm dsh plugin --profile web add dsh-usage-meters
 pnpm dsh web
 ```
 
@@ -224,7 +224,7 @@ pnpm dsh web
 
 市面上同类插件不少，定位容易混。这里划清：
 
-| | `dsh-usage-cmdkit` | 全家桶类（如 `dsh-kit`） |
+| | `dsh-usage-meters` | 全家桶类（如 `dsh-kit`） |
 |---|---|---|
 | 范围 | 用量遥测 | 页面终端、文件树、编辑器等一整套 |
 | 数据 | 只读 harness 本地 token 记录 | 各模块自有数据源 |
@@ -307,32 +307,32 @@ pnpm run build:client   # → lib/client.js（浏览器半）
 也不需要按需加载那一套机制。
 
 
-> 下面命令里的仓库目录名按**克隆后的目录**写（`dsh-usage-cmdkit`）。本地已有的工作副本目录可能还叫 `dsh-usage-dashboard`，按实际路径替换即可——目录名不影响运行，包名才影响。
+> 下面命令里的仓库目录名按**克隆后的目录**写（`dsh-usage-meters`）。本地已有的工作副本目录可能还叫 `dsh-usage-dashboard`，按实际路径替换即可——目录名不影响运行，包名才影响。
 
 只跑 Host（不挂 client 半）：
 
 ```powershell
 cd D:\ScriptProject\deepseek-harness
-pnpm dsh web --patch ../dsh-usage-cmdkit/patch.dev.yml
+pnpm dsh web --patch ../dsh-usage-meters/patch.dev.yml
 ```
 
 Host + Client（要跑完整 UI）：
 
 ```powershell
-cd D:\ScriptProject\dsh-usage-cmdkit
+cd D:\ScriptProject\dsh-usage-meters
 pnpm install
 pnpm run typecheck
 pnpm run build:client
 
 cd D:\ScriptProject\deepseek-harness
-pnpm dsh plugin --profile web add D:/ScriptProject/dsh-usage-cmdkit
+pnpm dsh plugin --profile web add D:/ScriptProject/dsh-usage-meters
 pnpm dsh web
 ```
 
 ### 实现要点
 
 - **不回读会话历史。** harness 已弃用 `session.snapshotEvents()`，存储演进后完整事件序列不再保证常驻内存。改为在 `session/event` 流上就地攒一个 turn 的段：`turn/start` 开缓冲、`turn/end` 交出。内存占用与 turn 长度成正比，与会话历史长度无关。
-- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/03-remotes-and-client.md)。
+- **不走官方 remotes。** `ctx.remote.<namespace>` 对第三方插件是关闭的（Client 侧是静态清单，第三方包加不进去）。改走 `ctx.connection.fetch.register`，在 Connection 的认证栅栏内注册精确路由，浏览器同源 `fetch` 直读。详见 [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/steps/03-remotes-and-client.md)。
 - **全局标识取名规则**：`TAB_ID` 取包名（实现身份，全球唯一）；`TAB_KIND` 取短名 `usage-dashboard`（类型判别符，**不要改**——右栏已打开的 Tab 会把 kind 持久化，改名会让它们一律显示「这类内容还没有可用的查看方式」）；locale 命名空间 `dsh.usage`（全局声明合并点，撞名会让**对方的包**编译失败）。
 - **插件不注册全局快捷键**。宿主的 `⌘K` 已经派给了「搜索会话」，插件再抢同一个键，两个面板会同时响应；`⌘/` 又是宿主的快捷键手册。与其挑一枚不冲突的键（`⌘J` / `Ctrl+Alt+J`）再把改键、冲突检测、键帽渲染都接一遍，不如**完全不占全局键位**——面板里的操作都在面板里做。
 - **样式走内联 style**，不走 CSS Modules——浏览器半是独立打包产物，不进 harness 的 CSS 管线。
@@ -343,12 +343,12 @@ pnpm dsh web
   在 automatic JSX runtime 下（`jsx: 'automatic'`），children 只在 `props.children` 里。
 ### 文档
 
-- [docs/README.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/README.md) —— 实施顺序与索引
-- [docs/00-项目说明.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/00-项目说明.md) —— 项目总览与学习文档
-- [docs/steps/01-collect-usage-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
-- [docs/steps/02-persist-stats.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/02-persist-stats.md) —— 步骤 2：持久化 JSON
-- [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/steps/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
-- [docs/guide/步骤1代码详解.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/docs/guide/步骤1代码详解.md) —— 步骤 1 的逐行学习文档
+- [docs/README.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/README.md) —— 实施顺序与索引
+- [docs/00-项目说明.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/00-项目说明.md) —— 项目总览与学习文档
+- [docs/steps/01-collect-usage-stats.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/steps/01-collect-usage-stats.md) —— 步骤 1：采集 token 用量
+- [docs/steps/02-persist-stats.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/steps/02-persist-stats.md) —— 步骤 2：持久化 JSON
+- [docs/steps/03-remotes-and-client.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/steps/03-remotes-and-client.md) —— 步骤 3：数据通道与 Client 半
+- [docs/guide/步骤1代码详解.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/docs/guide/步骤1代码详解.md) —— 步骤 1 的逐行学习文档
 
 ### 外部参考
 
@@ -361,11 +361,16 @@ pnpm dsh web
 
 ## 迁移
 
-本项目此前叫 **`dsh-usage-dashboard`**，当时只做用量面板。npm 上该名字已被他人占用（另一个「API 余额 + 今日花费」的侧栏小部件），因此更名为 **`dsh-usage-cmdkit`**。
+本项目换过两次名：
 
-改名**不影响任何已有安装**：本项目此前一直是 `private: true`，从未发布到 npm——npm 上的 `dsh-usage-dashboard` 是**别人的包**（另一个「API 余额 + 今日花费」的侧栏小部件），不要去动它。所以这里没有 npm 侧的迁移，只有两处本地变化：
+1. **`dsh-usage-dashboard`** —— 最初的名字，只做用量面板。npm 上该名字已被他人占用（另一个「API 余额 + 今日花费」的侧栏小部件），于是改叫 **`dsh-usage-cmdkit`**。
+2. **`dsh-usage-cmdkit`** —— 用了一阵子。后来「cmd」那套叫法作废了，包名里的 `cmdkit` 成了纯负担：产品里根本没有任何命令面板，「CmdKit」这层皮跟实际功能对不上。于是更名为 **`dsh-usage-meters`**。
 
-- **目录名**：本地工作副本的文件夹可能还叫 `dsh-usage-dashboard`，克隆新仓库则是 `dsh-usage-cmdkit`；两者都能跑，按实际路径替换即可。
+名字的取舍：npm 上 `dsh-usage*` 已经很挤——`dsh-usage-panel`（官方插件占用，做设置页消耗统计）、`dsh-usage-dashboard`、`dsh-usage-chart`、`dsh-usage-stats`、`dsh-usage-heatmap`、`dsh-usage-badge`、`dsh-usage-monitor`……全被占了。`meters` 空着且没人用过，而它说的正是这个东西：**一组表**（四色环 / 表盘 / 折线 / 条）。品牌随之从「DSH CmdKit」改成「**DSH Meters**」，角标仍是 `USAGE`。
+
+改名**不影响任何已有安装**：本项目此前一直是 `private: true`，从未发布到 npm——npm 上的 `dsh-usage-dashboard` 和 `dsh-usage-cmdkit` 都不是本项目的包，不要去动它们。所以这里没有 npm 侧的迁移，只有两处本地变化：
+
+- **目录名**：本地工作副本的文件夹还叫 `dsh-usage-dashboard`（没跟着改，改了要重装 profile 里的 link），克隆新仓库则是 `dsh-usage-meters`；两者都能跑，按实际路径替换即可。
 - **已积累的用量统计文件不受影响**——统计按 DSH profile 路径存放，与包名无关。
 
 > 内部标识（Loader 行 id、Cordis 插件名、`TAB_ID`）已随包名一并加固，`TAB_KIND` 有意保持 `usage-dashboard` 不变，原因见「实现要点」。
@@ -374,4 +379,4 @@ pnpm dsh web
 
 ## License
 
-[MIT](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/LICENSE) —— 除非另有说明。
+[MIT](https://github.com/xiewg1987/dsh-usage-meters/blob/main/LICENSE) —— 除非另有说明。

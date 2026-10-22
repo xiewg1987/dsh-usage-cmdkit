@@ -1,5 +1,5 @@
 {
-  "name": "dsh-usage-cmdkit",
+  "name": "dsh-usage-meters",
   "version": "0.1.0",
   "description": "DSH Web 本地插件：右侧栏用量遥测（Usage）。数据与配置全部留在本机。",
   "license": "MIT",
@@ -34,11 +34,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xiewg1987/dsh-usage-cmdkit.git"
+    "url": "git+https://github.com/xiewg1987/dsh-usage-meters.git"
   },
-  "homepage": "https://github.com/xiewg1987/dsh-usage-cmdkit#readme",
+  "homepage": "https://github.com/xiewg1987/dsh-usage-meters#readme",
   "bugs": {
-    "url": "https://github.com/xiewg1987/dsh-usage-cmdkit/issues"
+    "url": "https://github.com/xiewg1987/dsh-usage-meters/issues"
   },
   "keywords": [
     "dsh",
@@ -50,7 +50,8 @@
     "telemetry",
     "web",
     "sidebar",
-    "command-palette"
+    "dashboard",
+    "meters"
   ],
   "publishConfig": {
     "access": "public"

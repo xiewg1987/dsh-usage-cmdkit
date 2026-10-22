@@ -319,8 +319,8 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         onView={setView}
         loading={status === 'loading'}
         notice={notice}
-        // 窄栏底栏不重复包名：品牌头已经写着「DSH CmdKit」，
-        // 这里再写一遍「dsh-usage-cmdkit」只会把版本号挤掉。
+        // 窄栏底栏不重复包名：品牌头已经写着「DSH Meters」，
+        // 这里再写一遍「dsh-usage-meters」只会把版本号挤掉。
         status={`${t('footer.synced')} · ${t('footer.local')}`}
         version={footerVersion}
         actions={actions}

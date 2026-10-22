@@ -34,6 +34,6 @@
   未设置时用 **Harness home 下的 `profiles/web/usage-stats.json`**
   （home = `$DSH_HOME`，否则 `~/.dsh`；与 harness 的 `resolveDshHome` 规则一致）。
   **不**退回当前工作目录——harness 常从源码仓库启动，退回 cwd 会把统计文件写进别人的源码树。  
-- 每完成一轮有模型的 turn，对应 **dayKey** 下 `total` 四桶递增；终端会打 `[dsh-usage-cmdkit] 已写入`。  
+- 每完成一轮有模型的 turn，对应 **dayKey** 下 `total` 四桶递增；终端会打 `[dsh-usage-meters] 已写入`。  
 - 文件里出现两个日键时，旧日会被 prune 掉（超出保留窗口的那个）。  
 - 清空 = 删除文件或重置 `days: {}`（步骤 3 已暴露 `POST /api/usage.clear`）。

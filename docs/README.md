@@ -1,4 +1,4 @@
-# dsh-usage-cmdkit 文档
+# dsh-usage-meters 文档
 
 按**类型**分目录，不平铺在 `docs/` 根下：
 

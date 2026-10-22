@@ -1,25 +1,25 @@
-# v6 预览说明 · DSH CmdKit v6（竖屏 360×800 三屏 + 宽版 1280×720）
+# v6 预览说明 · DSH Meters v6（竖屏 360×800 三屏 + 宽版 1280×720）
 
-![竖屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-360x800.png)
+![竖屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-360x800.png)
 
-![Top 屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-360x800.png)
+![Top 屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-360x800.png)
 
-![告警屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-360x800.png)
+![告警屏 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-360x800.png)
 
-![Loading 骨架态 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-loading-360x800.png)
+![Loading 骨架态 360×800 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-loading-360x800.png)
 
-![宽版 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
+![宽版 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png)
 
-![宽版 Top 屏 1280×768 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x768.png)
+![宽版 Top 屏 1280×768 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-1280x768.png)
 
-![宽版告警屏 1280×960 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-1280x960.png)
+![宽版告警屏 1280×960 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-1280x960.png)
 
-> 成图：`design/dsh-cmdkit-v6-360x800.png`（总览，360×800，2 倍图 720×1600）、
-> `design/dsh-cmdkit-v6-top-360x800.png`、`design/dsh-cmdkit-v6-alerts-360x800.png`、
-> `design/dsh-cmdkit-v6-loading-360x800.png`（Loading 骨架态），
-> 与 `design/dsh-cmdkit-v6-1280x720.png`（宽版总览，2 倍图 2560×1440）、
-> `design/dsh-cmdkit-v6-top-1280x768.png`（宽版 Top）、
-> `design/dsh-cmdkit-v6-alerts-1280x960.png`（宽版告警）。
+> 成图：`design/dsh-meters-v6-360x800.png`（总览，360×800，2 倍图 720×1600）、
+> `design/dsh-meters-v6-top-360x800.png`、`design/dsh-meters-v6-alerts-360x800.png`、
+> `design/dsh-meters-v6-loading-360x800.png`（Loading 骨架态），
+> 与 `design/dsh-meters-v6-1280x720.png`（宽版总览，2 倍图 2560×1440）、
+> `design/dsh-meters-v6-top-1280x768.png`（宽版 Top）、
+> `design/dsh-meters-v6-alerts-1280x960.png`（宽版告警）。
 > 宽版 Top 的内容高度 720px、告警 912px，720 装不下，
 > 所以那两稿按实际高度出 1280×768 与 1280×960。
 > 本文件说明这些图**是什么**、**怎么来的**、每一块对应实现的哪段代码，
@@ -59,7 +59,7 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 | `PREVIEW_ENTRY` | 入口：`preview-360` / `preview-360-top` / `preview-360-alerts` / `preview-360-loading` / `preview-1280` / `preview-1280-top` / `preview-1280-alerts` | `preview-360` |
 | `PREVIEW_W` / `PREVIEW_H` | 画布尺寸（试矮侧栏用 `PREVIEW_H=700`；宽版 Top / 告警入口的 tag 落在画布表外，**要自己给尺寸**） | 按入口（360×800 / 1280×720） |
 | `PREVIEW_SCALE` | 截图倍率 | 2 |
-| `PREVIEW_OUT` | 输出路径 | 按入口（`dsh-cmdkit-v6-<tag>.png`） |
+| `PREVIEW_OUT` | 输出路径 | 按入口（`dsh-meters-v6-<tag>.png`） |
 | `PREVIEW_DEV=1` | 用 React 开发版渲染（报错带组件栈） | 关 |
 | `PREVIEW_DUMP=1` | 导出**真实渲染出来的几何**到 `design/_v6_src/layout-<tag>.json` | 关 |
 | `PREVIEW_SVG=1` | 导出页面里真正画出的 **SVG**（折线 / 表盘 / 图标）到 `design/_v6_src/svg-<tag>/` | 关 |
@@ -67,9 +67,9 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 出另外三张竖屏图：
 
 ```bash
-$env:PREVIEW_ENTRY='preview-360-top';    $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-360x800.png';     node design/_v6_src/render-preview.mjs
-$env:PREVIEW_ENTRY='preview-360-alerts'; $env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-360x800.png';  node design/_v6_src/render-preview.mjs
-$env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-loading-360x800.png'; node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-360-top';    $env:PREVIEW_OUT='design/dsh-meters-v6-top-360x800.png';     node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-360-alerts'; $env:PREVIEW_OUT='design/dsh-meters-v6-alerts-360x800.png';  node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-meters-v6-loading-360x800.png'; node design/_v6_src/render-preview.mjs
 ```
 
 宽版 Top / 告警两屏：这两个入口的 tag（`1280-top` / `1280-alerts`）不在画布表里，
@@ -77,9 +77,9 @@ $env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-
 
 ```bash
 $env:PREVIEW_W='1280'; $env:PREVIEW_H='768'
-$env:PREVIEW_ENTRY='preview-1280-top';   $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-1280x768.png';   node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-1280-top';   $env:PREVIEW_OUT='design/dsh-meters-v6-top-1280x768.png';   node design/_v6_src/render-preview.mjs
 $env:PREVIEW_W='1280'; $env:PREVIEW_H='960'
-$env:PREVIEW_ENTRY='preview-1280-alerts';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-1280x960.png'; node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-1280-alerts';$env:PREVIEW_OUT='design/dsh-meters-v6-alerts-1280x960.png'; node design/_v6_src/render-preview.mjs
 ```
 
 > `design/_v6_src/` 是本地工作区（不进版本库），与 `design/_v4_src/` 同理。
@@ -113,7 +113,7 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 
 ## ArtCraft 稿也走同一条线（原生节点，不是整帧贴图）
 
-本地设计工具（ArtCraft / FigCraft）里的稿子 `DSH CmdKit · Usage 360×800 (MCP)`
+本地设计工具（ArtCraft / FigCraft）里的稿子 `DSH Meters · Usage 360×800 (MCP)`
 也走「从实现导出 → 脚本建原生节点」这条路，**不是照着成图手摆的**。
 
 **为什么不整帧 `import_svg`**：整帧 SVG 导入会把所有文字变成矢量路径——
@@ -192,7 +192,7 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 
 | 区块 | 内容 | 实现位置 |
 |---|---|---|
-| 品牌头 | `DSH CmdKit`（左 16px 700）+ `Usage`（右 9px 灰字） | `UsageChrome.tsx` `BrandHeader`（`size="compact"`） |
+| 品牌头 | `DSH Meters`（左 16px 700）+ `Usage`（右 9px 灰字） | `UsageChrome.tsx` `BrandHeader`（`size="compact"`） |
 | 分隔线 | 发丝线 `rgba(255,255,255,.07)` | `UsageHeader.tsx` |
 | 控件行 | `SegmentedControl`（暗底容器 + 选中**描边**药丸）+ 时间窗描边药丸（右对齐） | `UsageMeters.tsx` `SegmentedControl` / `UsageChrome.tsx` `WindowPills` |
 | 主指标卡 | `742.6K` 42px + `TOKENS · 30D` + **涨跌签** `22.7% vs prev 15d` + **主折线** 124×24；右侧 **命中率表盘** 104px | `UsageCompact.tsx` + `UsageMeters.tsx` `Sparkline` / `MiniGauge` / `DeltaChip` |
@@ -326,7 +326,7 @@ mock 里的故事：gpt-5 抢份额（+3.1pt），reasoner 让份额（-1.8pt）
 | 控件行 32（一行放下） | 一行放下，但时间窗用**短档位** `TODAY / 7D / 30D` | 360 宽放不下长短两套标签（`TODAY / 7 DAYS / 30 DAYS` 与分段控件合计 ≈341px > 328px）。折成两行会把下面所有区块往下推 28px。 |
 | 分类行「行间发丝线」 | 有（16px 高的发丝线带） | 发丝线占用行距，所以行高正好 44（16 行名 + 7 + 5 细条 + 16 发丝线带）。 |
 | 品牌头右侧 `Usage` 9px 灰字 | 9px 灰字 | 蓝青让给选中态与进度环。 |
-| 底栏 `dsh-usage-cmdkit · synced · local ok` + 版本号 | 窄栏**不重复包名**：`synced · local ok · v0.1.0` | 品牌头已经写着「DSH CmdKit」，再写一遍包名会把版本号挤成省略号。宽面板仍带包名。 |
+| 底栏 `dsh-usage-meters · synced · local ok` + 版本号 | 窄栏**不重复包名**：`synced · local ok · v0.1.0` | 品牌头已经写着「DSH Meters」，再写一遍包名会把版本号挤成省略号。宽面板仍带包名。 |
 | 方案合计 ≈660px + 间距，余 ~90px | 实际余 ≈45px | 控件行从「32」变「一行 29.5」省下的空间，被洞察卡（72→81）与四行发丝线带吃掉。**一屏仍然装得下**，留白略少于方案设想。 |
 | 一屏（总览） | **三屏 + 一态骨架** | 顶部分段控件原本是占位（除第一个全被 `disabled`）。这一轮把它接上真开关，另做 Top 与告警两屏；读数时身体换成骨架。 |
 | 品类色：四色（蓝/绿/紫/橙） | 竖屏**单色梯队**（同一色相四档亮度） | 四种色相并排会把四行读成四件事，它们其实是同一份用量的四个切面。宽版列表仍是四色玻璃——它的主环本来就是四段桶色弧。 |
@@ -342,8 +342,8 @@ mock 里的故事：gpt-5 抢份额（+3.1pt），reasoner 让份额（-1.8pt）
 # 宽版（1280×720）
 
 宽版与竖屏一样是**三屏**（总览 / Top / 告警），共用 `UsageHeader`。
-成图有三张：总览 `dsh-cmdkit-v6-1280x720.png`、Top `dsh-cmdkit-v6-top-1280x768.png`、
-告警 `dsh-cmdkit-v6-alerts-1280x960.png`（这一屏内容 912px，按实际高度出图）。
+成图有三张：总览 `dsh-meters-v6-1280x720.png`、Top `dsh-meters-v6-top-1280x768.png`、
+告警 `dsh-meters-v6-alerts-1280x960.png`（这一屏内容 912px，按实际高度出图）。
 
 宽版 Top / 告警是**单列的卡流**（跟竖屏同一套组件），宽版靠卡片自己换行：
 窄列叠一列，宽列并两三列。宽版放得下，**新统计就独立成卡**：
@@ -372,14 +372,14 @@ Top 屏多一张 CACHE HIT 卡和一张 MODEL TREND 卡，告警屏多一张 RHY
 
 | 区块 | 位置 | 内容 |
 |---|---|---|
-| 品牌头 | 31,23 | `DSH CmdKit` 16px 700 + 右侧 `USAGE` 9px 灰字；下方一道发丝线 |
+| 品牌头 | 31,23 | `DSH Meters` 16px 700 + 右侧 `USAGE` 9px 灰字；下方一道发丝线 |
 | 控件行 | 31,88 | 左：`SegmentedControl`（`OVERVIEW / TOP / ALERTS`）；右：`WindowPills`（`TODAY / 7 DAYS / 30 DAYS`，选中项蓝青描边 + 12% 底） |
 | 主指标卡（左列） | 80,137.5 · 400×376 | **扁平环 259×259**（四段桶色弧、**无外发光**；环外百分比走灰阶；环心是 `742.6K` + `TOKENS · 30 DAYS` + `DAILY AVG 24.8K`）+ 涨跌签 `22.7% vs prev 15d` + 30 日主折线 366×26 |
 | 洞察卡（左列） | 80,533.5 · 400×81.3 | `ⓘ INSIGHT` + 两行正文 + 右侧 64px 占比条 |
 | 指标块行（右列） | 528,137.5 · 672×75.5 | 一张卡里两枚横排 `TODAY 28.6K` / `7 DAYS 201.8K`，中间一道发丝线，各自一条 4px 微条 |
 | 分类列表（右列） | 528,233 · 672×247 | 四行：圆点 + 名称 + 行内微折线 44×12 + 绝对数 + 灰阶百分比 + 5px 细条；行间发丝线 |
 | 来源卡（右列） | 528,500 · 672×115.5 | `BY SOURCE` + 三行 `deepseek / chat` 等 |
-| 状态条 | 31,650.5 · 1218×44.5 | 绿点 + `dsh-usage-cmdkit · synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（各带 11px Lucide 图标），**sticky 常驻** |
+| 状态条 | 31,650.5 · 1218×44.5 | 绿点 + `dsh-usage-meters · synced · local ok` + `· v0.1.0` + `Refresh / Clear` ghost 按钮（各带 11px Lucide 图标），**sticky 常驻** |
 
 分类列表与竖屏是同一套列表语言，行内微折线、细条、行间发丝线都一样，
 只有字号放大一档（行名 13px / 竖屏 11px）——宽版有横向余量。
@@ -420,7 +420,7 @@ Top 屏多一张 CACHE HIT 卡和一张 MODEL TREND 卡，告警屏多一张 RHY
 
 ## 还没做的
 
-- **ArtCraft 稿已经跟上了**：`DSH CmdKit · Usage 360×800 (MCP)` 里的六屏
+- **ArtCraft 稿已经跟上了**：`DSH Meters · Usage 360×800 (MCP)` 里的六屏
   （总览 / Top / 告警 + 三屏骨架）都按**实现导出的几何**重搭过一遍，
   走的是上面「原生节点」那条线——文字还是文字，图层带语义名，不是照着成图手摆的。
   以后改实现 → 重跑脚本 → 稿子重搭，稿子不会再落后好几轮。
