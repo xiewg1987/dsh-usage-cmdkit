@@ -22,7 +22,7 @@ harness 的 `ctx.remote.<namespace>` 是给 **harness 内部包** 用的，第�
 
 | 路由 | 方法 | 行为 |
 |------|------|------|
-| `/api/usage.summary` | GET | 读 JSON，返回 `{ today, d7, d30, byProvider, generatedAt }` |
+| `/api/usage.summary` | GET | 读 JSON，返回完整 `UsageSummary`（见下表） |
 | `/api/usage.clear` | POST | 清空统计（保留 `retentionDays`） |
 
 服务端路由键是**绝对路径**，浏览器引用是**文档相对**形式
@@ -34,6 +34,20 @@ Web 外壳的文档自带 `<base href="./">`，同一份 bundle 在源站根与�
 
 harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client-file-upload`
 都是这个路子。
+
+### `/api/usage.summary` 响应形状
+
+与 `src/protocol.ts` 的 `UsageSummary` 一致：
+
+| 字段 | 含义 |
+|------|------|
+| `today` / `d7` / `d30` | 三个滚动窗口的四桶合计 |
+| `byProvider` | 近 30 日按 provider/model 拆分，按总量降序 |
+| `daily` | 近 30 日日序列，**从旧到新**，无记录日补零 |
+| `dailyByProvider` | 与 `byProvider` 同序的逐日序列（模型走向等） |
+| `generatedAt` | 汇总生成时刻（毫秒时间戳） |
+
+Client 用 `isUsageSummary()` 校验；缺字段或形状不对则当作读失败。
 
 ## Client
 
@@ -97,6 +111,7 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 模块级单例是安全的：浏览器半整包在页面里只加载一次
 （`window.__ModuleLoader__.load`），同一份模块实例贯穿整个页面。
 
-## 可选 Phase D
+## 可选 Phase D（计划 v0.3.0）
 
 Volatile Config：`storagePath`、`retentionDays`（Schema + Configure 或 Dashboard 内编辑）。
+不在 v0.2.0 范围；见 [plan/v0.2.0.md](../plan/v0.2.0.md) §6。

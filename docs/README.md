@@ -22,6 +22,10 @@ docs/
 
 统一说明与设计取舍见 **[00-项目说明.md](./00-项目说明.md)**。
 
+版本计划：
+
+- [v0.1.0 审核与 v0.2.0 计划](./plan/v0.2.0.md) —— 发布状态、P0/P1 发现、0.1.1 热修与 0.2.0 里程碑。
+
 外部参考（harness 仓库，非本插件依赖说明）：
 
 - [extension-cookbook.zh.md](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/cookbook/extension-cookbook.zh.md) — `session/event` 与 UI 插件边界  

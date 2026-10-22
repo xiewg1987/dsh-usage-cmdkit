@@ -1,6 +1,6 @@
 {
   "name": "dsh-usage-meters",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH Web 本地插件：右侧栏用量遥测（Usage）。数据与配置全部留在本机。",
   "license": "MIT",
   "author": {
@@ -30,6 +30,7 @@
     "cordis.patch.yml",
     "patch.dev.yml",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "repository": {

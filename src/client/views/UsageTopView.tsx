@@ -668,7 +668,8 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
   )
 
   /** 按来源汇总。 */
-  const providerCard = (    <div
+  const providerCard = (
+    <div
       style={{
         padding: '13px 14px',
         borderRadius: RADIUS.md,

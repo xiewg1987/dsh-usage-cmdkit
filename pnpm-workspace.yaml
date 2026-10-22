@@ -5,5 +5,5 @@ minimumReleaseAge: 1440
 
 # esbuild 的 postinstall 负责落地平台二进制（@esbuild/win32-x64 等），
 # 不放行就会缺二进制、构建直接失败。
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true
