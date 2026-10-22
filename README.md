@@ -368,7 +368,7 @@ pnpm dsh web
 
 名字的取舍：npm 上 `dsh-usage*` 已经很挤——`dsh-usage-panel`（官方插件占用，做设置页消耗统计）、`dsh-usage-dashboard`、`dsh-usage-chart`、`dsh-usage-stats`、`dsh-usage-heatmap`、`dsh-usage-badge`、`dsh-usage-monitor`……全被占了。`meters` 空着且没人用过，而它说的正是这个东西：**一组表**（四色环 / 表盘 / 折线 / 条）。品牌随之从「DSH CmdKit」改成「**DSH Meters**」，角标仍是 `USAGE`。
 
-改名**不影响任何已有安装**：本项目此前一直是 `private: true`，从未发布到 npm——npm 上的 `dsh-usage-dashboard` 和 `dsh-usage-cmdkit` 都不是本项目的包，不要去动它们。所以这里没有 npm 侧的迁移，只有两处本地变化：
+改名**不影响任何已有安装**：本项目此前一直是 `private: true`，从未发布到 npm——npm 上的 `dsh-usage-dashboard` 是**别人的包**（另一个「API 余额 + 今日花费」的侧栏小部件），不要去动它；`dsh-usage-cmdkit` 这个名字则从未被任何人发布过，npm 上至今仍是 404。所以这里没有 npm 侧的迁移，只有两处本地变化：
 
 - **目录名**：本地工作副本的文件夹还叫 `dsh-usage-dashboard`（没跟着改，改了要重装 profile 里的 link），克隆新仓库则是 `dsh-usage-meters`；两者都能跑，按实际路径替换即可。
 - **已积累的用量统计文件不受影响**——统计按 DSH profile 路径存放，与包名无关。
