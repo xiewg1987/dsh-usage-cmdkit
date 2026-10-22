@@ -5,7 +5,10 @@
 ## 做什么
 
 - 在 Host 用 `fs` 读写 **profile 目录** 下单个 JSON（默认如 `usage-stats.json`）。  
-- 结构：**按本地日 `YYYY-MM-DD` rollup**，桶字段与步骤 1 相同；可选 `byProvider`（来自 `routes`，键为 `provider/model`）。  
+- 结构：**按本地日 `YYYY-MM-DD` rollup**，桶字段与步骤 1 相同；`byProvider` 键为 `provider/model`、
+  `unknown`（无 routes）或 `__mixed__`（多 route turn 整轮记入一次，不重复拆分）。  
+- 可选顶层 `attribution`：`totalTurns` / `exactTurns` / `mixedTurns` / `unknownTurns`；
+  从 0.1 迁来的文件若曾多路由重复计数，读盘时内存标记 `legacy: true`（不强制写回）。  
 - 每次 merge 后 **`prune`** 掉保留窗口外的日键。  
 - Client **仍不读盘**；本步可用脚本或 log 验证文件内容递增。
 

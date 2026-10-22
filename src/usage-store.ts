@@ -1,8 +1,18 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import type { TurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal, UsageSummary } from './protocol.js'
+import {
+  MIXED_PROVIDER_KEY,
+  UNKNOWN_PROVIDER_KEY,
+  type UsageBuckets,
+  type UsageDailyPoint,
+  type UsageProviderDaily,
+  type UsageProviderTotal,
+  type UsageSummary,
+  type UsageSummaryWarning,
+} from './protocol.js'
 
 /** 与 Web「本轮用量」一致的四桶 */
 export interface TokenBuckets {
@@ -14,18 +24,59 @@ export interface TokenBuckets {
 
 export interface DayRollup {
   total: TokenBuckets
-  /** 键：`provider/model`，无 routes 时归入 `unknown` */
+  /**
+   * 键：`provider/model`、{@link UNKNOWN_PROVIDER_KEY} 或 {@link MIXED_PROVIDER_KEY}。
+   */
   byProvider: Record<string, TokenBuckets>
+  /** 当日完成的 turn 数（0.2+ 写入；旧文件无此字段）。 */
+  turns?: number
+}
+
+/** 归因统计：新 turn 写入时递增；旧文件可能缺失。 */
+export interface AttributionStats {
+  totalTurns: number
+  exactTurns: number
+  mixedTurns: number
+  unknownTurns: number
+  /** 0.1 迁移来的文件：byProvider 可能含多路由重复计数，不可与 total 对账。 */
+  legacy?: boolean
 }
 
 export interface UsageStatsFile {
   version: 1
   retentionDays: number
   days: Record<string, DayRollup>
+  attribution?: AttributionStats
 }
 
 const FILE_VERSION = 1 as const
 const DEFAULT_RETENTION_DAYS = 30
+const MIN_RETENTION_DAYS = 1
+const MAX_RETENTION_DAYS = 3650
+const STATS_DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+/** 统计文件版本不兼容，禁止写入 / 清空。 */
+export class StatsWriteBlockedError extends Error {
+  readonly reason = 'unsupported' as const
+
+  constructor() {
+    super('usage stats file version is not supported')
+    this.name = 'StatsWriteBlockedError'
+  }
+}
+
+export type ReadOutcomeKind = 'ok' | 'missing' | 'recovered' | 'unsupported'
+
+/** 读盘结果：内存中的文件快照 + 元数据（不隐式覆盖磁盘上的不兼容文件）。 */
+export interface ReadOutcome {
+  kind: ReadOutcomeKind
+  file: UsageStatsFile
+  quarantinePath?: string
+  foundVersion?: number
+}
+
+/** 按路径记录「只读」：未知版本文件在磁盘上保留，直到用户手动处理。 */
+const writeBlockedByPath = new Map<string, boolean>()
 
 /** 汇总窗口的长度（含今日）。 */
 const WINDOWS = { d7: 7, d30: 30 } as const
@@ -114,11 +165,68 @@ function addBuckets(a: TokenBuckets, b: TokenBuckets): TokenBuckets {
   }
 }
 
-function providerKeys(usage: TurnTokenUsage): string[] {
-  if (usage.routes === undefined || usage.routes.length === 0) return ['unknown']
+export type TurnAttributionKind = 'exact' | 'mixed' | 'unknown'
+
+/** 去重后的 route 键（`provider/model`）。 */
+export function uniqueRouteKeys(usage: TurnTokenUsage): string[] {
+  if (usage.routes === undefined || usage.routes.length === 0) return []
   const keys = new Set<string>()
   for (const r of usage.routes) keys.add(`${r.provider}/${r.model}`)
   return [...keys]
+}
+
+/**
+ * 本 turn 应写入 `byProvider` 的键。
+ *
+ * 单 route → 精确键；多 route → {@link MIXED_PROVIDER_KEY}（整轮 token 只记一次）；
+ * 无 route → {@link UNKNOWN_PROVIDER_KEY}。
+ */
+export function resolveProviderKey(usage: TurnTokenUsage): string {
+  const keys = uniqueRouteKeys(usage)
+  if (keys.length === 0) return UNKNOWN_PROVIDER_KEY
+  if (keys.length === 1) return keys[0]
+  return MIXED_PROVIDER_KEY
+}
+
+/** 本 turn 的归因类别（用于 `attribution` 计数）。 */
+export function turnAttributionKind(usage: TurnTokenUsage): TurnAttributionKind {
+  const keys = uniqueRouteKeys(usage)
+  if (keys.length === 0) return 'unknown'
+  if (keys.length === 1) return 'exact'
+  return 'mixed'
+}
+
+function emptyAttribution(): AttributionStats {
+  return { totalTurns: 0, exactTurns: 0, mixedTurns: 0, unknownTurns: 0 }
+}
+
+/** 0.1 口径：同一 turn 的整轮 token 被记到多个 route 上。 */
+export function dayByProviderInflatesTotal(day: DayRollup): boolean {
+  let sum = zeroBuckets()
+  for (const buckets of Object.values(day.byProvider)) {
+    sum = addBuckets(sum, buckets)
+  }
+  return bucketTotal(sum) > bucketTotal(day.total)
+}
+
+function fileHasLegacyInflatedDays(file: UsageStatsFile): boolean {
+  for (const day of Object.values(file.days)) {
+    if (dayByProviderInflatesTotal(day)) return true
+  }
+  return false
+}
+
+/** 读盘后补全归因元数据（不写回磁盘）。 */
+export function normalizeStatsFile(file: UsageStatsFile): UsageStatsFile {
+  if (file.attribution?.legacy === true) return file
+  if (!fileHasLegacyInflatedDays(file)) return file
+  return {
+    ...file,
+    attribution: {
+      ...(file.attribution ?? emptyAttribution()),
+      legacy: true,
+    },
+  }
 }
 
 /**
@@ -144,24 +252,189 @@ function bucketTotal(buckets: TokenBuckets): number {
     + buckets.cacheWriteTokens
 }
 
-async function readStatsFile(path: string): Promise<UsageStatsFile> {
+function isSafeCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
+/** 校验并夹紧保留天数。 */
+export function parseRetentionDays(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_RETENTION_DAYS
+  const n = Math.trunc(value)
+  if (n < MIN_RETENTION_DAYS) return DEFAULT_RETENTION_DAYS
+  if (n > MAX_RETENTION_DAYS) return MAX_RETENTION_DAYS
+  return n
+}
+
+function sanitizeTokenBuckets(value: unknown): TokenBuckets | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  if (!isSafeCount(record.uncachedInputTokens)) return undefined
+  if (!isSafeCount(record.outputTokens)) return undefined
+  if (!isSafeCount(record.cacheReadTokens)) return undefined
+  if (!isSafeCount(record.cacheWriteTokens)) return undefined
+  return {
+    uncachedInputTokens: record.uncachedInputTokens,
+    outputTokens: record.outputTokens,
+    cacheReadTokens: record.cacheReadTokens,
+    cacheWriteTokens: record.cacheWriteTokens,
+  }
+}
+
+/** 校验单日 rollup；非法条目丢弃。 */
+export function sanitizeDayRollup(value: unknown): DayRollup | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const total = sanitizeTokenBuckets(record.total)
+  if (total === undefined) return undefined
+  const byProvider: Record<string, TokenBuckets> = {}
+  if (record.byProvider !== null && typeof record.byProvider === 'object') {
+    for (const [key, buckets] of Object.entries(record.byProvider as Record<string, unknown>)) {
+      const sane = sanitizeTokenBuckets(buckets)
+      if (sane !== undefined) byProvider[key] = sane
+    }
+  }
+  const turns = record.turns === undefined ? undefined : (
+    isSafeCount(record.turns) ? record.turns : undefined
+  )
+  return { total, byProvider, turns }
+}
+
+/** 校验日键 map，丢弃非法日键与 rollup。 */
+export function sanitizeDaysRecord(raw: unknown): Record<string, DayRollup> {
+  if (raw === null || typeof raw !== 'object') return {}
+  const days: Record<string, DayRollup> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!STATS_DAY_KEY.test(key)) continue
+    const rollup = sanitizeDayRollup(value)
+    if (rollup !== undefined) days[key] = rollup
+  }
+  return days
+}
+
+function sanitizeAttribution(value: unknown): AttributionStats | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  if (!isSafeCount(record.totalTurns)) return undefined
+  if (!isSafeCount(record.exactTurns)) return undefined
+  if (!isSafeCount(record.mixedTurns)) return undefined
+  if (!isSafeCount(record.unknownTurns)) return undefined
+  return {
+    totalTurns: record.totalTurns,
+    exactTurns: record.exactTurns,
+    mixedTurns: record.mixedTurns,
+    unknownTurns: record.unknownTurns,
+    legacy: record.legacy === true ? true : undefined,
+  }
+}
+
+function setWriteBlocked(path: string, blocked: boolean): void {
+  writeBlockedByPath.set(path, blocked)
+}
+
+function assertWritable(path: string): void {
+  if (writeBlockedByPath.get(path) === true) {
+    throw new StatsWriteBlockedError()
+  }
+}
+
+async function quarantineCorruptFile(path: string): Promise<string | undefined> {
+  const quarantinePath = `${path}.corrupt-${Date.now()}`
+  try {
+    await rename(path, quarantinePath)
+    return quarantinePath
+  } catch (error) {
+    console.error('[dsh-usage-meters] 无法隔离损坏的统计文件', error)
+    return undefined
+  }
+}
+
+function fileFromParsedRecord(record: Record<string, unknown>): UsageStatsFile {
+  return normalizeStatsFile({
+    version: FILE_VERSION,
+    retentionDays: parseRetentionDays(record.retentionDays),
+    days: sanitizeDaysRecord(record.days),
+    attribution: sanitizeAttribution(record.attribution),
+  })
+}
+
+/** 由读盘结果与文件内容生成汇总 warning（优先级：unsupported > corrupt > legacy）。 */
+export function summaryWarningFromRead(outcome: ReadOutcome, file: UsageStatsFile): UsageSummaryWarning | undefined {
+  if (outcome.kind === 'unsupported') {
+    return {
+      code: 'unsupported',
+      detail: outcome.foundVersion !== undefined ? String(outcome.foundVersion) : undefined,
+    }
+  }
+  if (outcome.kind === 'recovered') return { code: 'corrupt' }
+  if (file.attribution?.legacy === true) return { code: 'legacy' }
+  return undefined
+}
+
+/**
+ * 读统计文件并返回明确结果（不静默覆盖不兼容版本）。
+ * @param path - 统计文件路径。
+ */
+export async function readStatsFileOutcome(path: string): Promise<ReadOutcome> {
   try {
     const raw = await readFile(path, 'utf8')
-    const parsed = JSON.parse(raw) as UsageStatsFile
-    if (parsed.version !== FILE_VERSION || typeof parsed.days !== 'object') {
-      return emptyFile(DEFAULT_RETENTION_DAYS)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      const quarantinePath = await quarantineCorruptFile(path)
+      setWriteBlocked(path, false)
+      return {
+        kind: 'recovered',
+        file: emptyFile(DEFAULT_RETENTION_DAYS),
+        quarantinePath,
+      }
     }
-    return {
-      version: FILE_VERSION,
-      retentionDays: typeof parsed.retentionDays === 'number' ? parsed.retentionDays : DEFAULT_RETENTION_DAYS,
-      days: parsed.days ?? {},
+
+    if (parsed === null || typeof parsed !== 'object') {
+      const quarantinePath = await quarantineCorruptFile(path)
+      setWriteBlocked(path, false)
+      return {
+        kind: 'recovered',
+        file: emptyFile(DEFAULT_RETENTION_DAYS),
+        quarantinePath,
+      }
     }
+
+    const record = parsed as Record<string, unknown>
+    if (record.version !== FILE_VERSION) {
+      setWriteBlocked(path, true)
+      return {
+        kind: 'unsupported',
+        file: emptyFile(DEFAULT_RETENTION_DAYS),
+        foundVersion: typeof record.version === 'number' ? record.version : undefined,
+      }
+    }
+
+    if (record.days === null || typeof record.days !== 'object') {
+      const quarantinePath = await quarantineCorruptFile(path)
+      setWriteBlocked(path, false)
+      return {
+        kind: 'recovered',
+        file: emptyFile(DEFAULT_RETENTION_DAYS),
+        quarantinePath,
+      }
+    }
+
+    const file = fileFromParsedRecord(record)
+    setWriteBlocked(path, false)
+    return { kind: 'ok', file }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return emptyFile(DEFAULT_RETENTION_DAYS)
+      setWriteBlocked(path, false)
+      return { kind: 'missing', file: emptyFile(DEFAULT_RETENTION_DAYS) }
     }
     throw error
   }
+}
+
+async function readStatsFile(path: string): Promise<UsageStatsFile> {
+  const outcome = await readStatsFileOutcome(path)
+  return outcome.file
 }
 
 /**
@@ -175,7 +448,7 @@ async function readStatsFile(path: string): Promise<UsageStatsFile> {
  * @returns 裁剪后的统计文件。
  */
 export function pruneDays(file: UsageStatsFile, nowMs: number = Date.now()): UsageStatsFile {
-  const retention = Math.max(1, Math.trunc(file.retentionDays))
+  const retention = parseRetentionDays(file.retentionDays)
   const cutoff = dayKeyOffset(nowMs, -(retention - 1))
   const days = Object.fromEntries(
     Object.entries(file.days).filter(([key]) => key >= cutoff),
@@ -184,7 +457,7 @@ export function pruneDays(file: UsageStatsFile, nowMs: number = Date.now()): Usa
   return { ...file, days }
 }
 
-function mergeTurnIntoFile(
+export function mergeTurnIntoFile(
   file: UsageStatsFile,
   dayKey: string,
   usage: TurnTokenUsage,
@@ -193,20 +466,32 @@ function mergeTurnIntoFile(
   const inc = bucketsFromTurn(usage)
   const prev = file.days[dayKey]
   const day: DayRollup = prev === undefined
-    ? { total: zeroBuckets(), byProvider: {} }
+    ? { total: zeroBuckets(), byProvider: {}, turns: 0 }
     : {
       total: { ...prev.total },
       byProvider: { ...prev.byProvider },
+      turns: prev.turns ?? 0,
     }
 
   day.total = addBuckets(day.total, inc)
-  for (const pk of providerKeys(usage)) {
-    const pPrev = day.byProvider[pk] ?? zeroBuckets()
-    day.byProvider[pk] = addBuckets(pPrev, inc)
+  const pk = resolveProviderKey(usage)
+  const pPrev = day.byProvider[pk] ?? zeroBuckets()
+  day.byProvider[pk] = addBuckets(pPrev, inc)
+  day.turns = (day.turns ?? 0) + 1
+
+  const kind = turnAttributionKind(usage)
+  const base = file.attribution ?? emptyAttribution()
+  const attribution: AttributionStats = {
+    ...base,
+    totalTurns: base.totalTurns + 1,
+    exactTurns: base.exactTurns + (kind === 'exact' ? 1 : 0),
+    mixedTurns: base.mixedTurns + (kind === 'mixed' ? 1 : 0),
+    unknownTurns: base.unknownTurns + (kind === 'unknown' ? 1 : 0),
   }
 
   return pruneDays({
     ...file,
+    attribution,
     days: { ...file.days, [dayKey]: day },
   }, nowMs)
 }
@@ -221,11 +506,33 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   return result
 }
 
+async function backupStatsFile(path: string): Promise<void> {
+  try {
+    await copyFile(path, `${path}.bak`)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error('[dsh-usage-meters] 备份统计文件失败', error)
+    }
+  }
+}
+
 async function writeStatsAtomic(path: string, file: UsageStatsFile): Promise<void> {
+  assertWritable(path)
   await mkdir(dirname(path), { recursive: true })
-  const tmp = `${path}.tmp`
-  await writeFile(tmp, `${JSON.stringify(file, null, 2)}\n`, 'utf8')
-  await rename(tmp, path)
+  const payload = `${JSON.stringify(file, null, 2)}\n`
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await writeFile(tmp, payload, 'utf8')
+      await rename(tmp, path)
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => { setTimeout(resolve, 40 * (attempt + 1)) })
+    }
+  }
+  throw lastError
 }
 
 /**
@@ -368,7 +675,10 @@ export async function readUsageSummary(
   path: string = defaultStatsPath(),
   nowMs: number = Date.now(),
 ): Promise<UsageSummary> {
-  return summarize(await readStatsFile(path), nowMs)
+  const outcome = await readStatsFileOutcome(path)
+  const summary = summarize(outcome.file, nowMs)
+  const warning = summaryWarningFromRead(outcome, outcome.file)
+  return warning === undefined ? summary : { ...summary, warning }
 }
 
 /**
@@ -378,9 +688,16 @@ export async function readUsageSummary(
  */
 export function clearUsage(path: string = defaultStatsPath()): Promise<UsageStatsFile> {
   return enqueue(async () => {
-    const current = await readStatsFile(path)
-    const cleared: UsageStatsFile = { ...current, days: {} }
+    assertWritable(path)
+    const outcome = await readStatsFileOutcome(path)
+    await backupStatsFile(path)
+    const cleared: UsageStatsFile = {
+      ...outcome.file,
+      days: {},
+      attribution: undefined,
+    }
     await writeStatsAtomic(path, cleared)
+    setWriteBlocked(path, false)
     return cleared
   })
 }

@@ -16,149 +16,38 @@
 
 ---
 
-## 状态
-
-| 能力 | 状态 |
-|------|------|
-| Usage 四色环（未缓存输入 / 输出 / 缓存读 / 缓存写） | ✅ 已发布 |
-| 时间窗切换（今日 / 7 日 / 30 日） | ✅ 已发布 |
-| 按来源聚合（provider / model） | ✅ 已发布 |
-| 刷新 / 清空 | ✅ 已发布 |
-| 多分辨率布局（窄栏三屏 / 宽面板 hero） | ✅ 已发布 |
-| v6 视觉 + 入场动效 | ✅ 已发布 |
-| 中英文文案 | ✅ 已发布 |
-| 缓存命中率指标（命中 / 总输入） | ✅ 已发布 |
-| v6 竖屏视觉（大数 + 涨跌签 + 折线 + 表盘 + 两枚 stat + 行内微折线） | ✅ 已发布 |
-| 三屏 + 一态骨架（总览 / Top / 告警） | ✅ 已发布 |
-| 分模型缓存命中率（每个模型各算各的） | ✅ 已发布 |
-| 模型走向（逐模型 30 日微折线 + 份额变化） | ✅ 已发布 |
-| 节律（周末 vs 工作日、连用天数、峰谷比） | ✅ 已发布 |
-| Alerts 阈值告警（不满足阈值就不报） | ✅ 已发布 |
-| Top3 截断（当前按来源是完整列表） | 🚧 计划中 |
-
-🚧 = 计划中 / 开发中，尚未进主干。下面的功能清单会标注每一项的状态。
-
-> 上一版设计稿里的 Top / Alerts 标签、日均 sparkline 都进主干并出了 v6 成图；
-> 还剩 **Top3 截断**没做——按来源那张卡仍是完整列表。
-
----
-
 ## 功能
 
-### Usage —— 用量遥测侧栏
+在 DSH Web 右侧栏增加 **Usage** Tab，把本机发生的 token 用量按 harness 四桶口径（未缓存输入 / 输出 / 缓存读 / 缓存写）按**本地日历日**rollup，再在面板里看总量、趋势和分布。
 
-DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端的密度，Apple 备忘录的克制」：近黑底、界面强调色只有蓝青一种，四色（`#4c8dff` / `#22c55e` / `#a855f7` / `#f59e0b`）只出现在环段、圆点与细条上，正文一律中性灰阶。
+- **总览** —— 四色环（窄栏为表盘 + 大数）；今日 / 7 日 / 30 日窗口；缓存命中率；四行分类与 30 日折线；涨跌签（今日窗不显示）。
+- **Top** —— 按 provider / model 排行；分模型命中率；30 日模型走向与份额变化；宽栏另有「按来源」卡（窄栏让位给走向时仍可从模型行看出 provider）。
+- **告警** —— 从日序列与四桶**推导**异常形状（峰值、占比、增速），不满足阈值不报；节律（周末 vs 工作日、连用天数、峰谷比）。
+- **布局** —— 按面板**实测宽度**切换窄栏竖屏与宽栏双列（≥900px，带迟滞）；高度变化时宽栏环径自适应，底栏操作常驻。
+- **语言** —— 中文 / 英文；v6 暗色界面（桶色只出现在环段与细条上）。
 
-**已发布**
+**数据怎么来**
 
-- **四色环** —— 未缓存输入 / 输出 / 缓存读 / 缓存写四桶占比，环心是所选窗口的总量与日均值；环外标百分比，某一桶独大时其余标签自动让位，不叠字。
-- **时间窗** —— 今日 / 7 日 / 30 日，滚动窗口按本地日历日切分。
-- **单指标** —— 缓存命中率（缓存读 /（未缓存输入 + 缓存读））。
-- **按来源** —— 按 provider / model 聚合的用量列表。
-- **刷新 / 清空** —— 重新读汇总；清空会把本地统计文件重置。
-- **自适应布局** —— 按面板**实测宽度**选布局（≥900px 走双栏 hero 版，860px 以下回落窄栏，带迟滞免得来回横跳），不按 `sidebar.fullscreen`——窗口窄时右栏会自动全屏，那时可用宽度反而更小。窄栏堆叠、宽面板左环右数据。
-- **一屏装下** —— 右栏的高度随窗口变，固定尺寸的设计稿定不了这件事，所以面板在运行时量：内容比一屏高多少，宽栏的环就缩多少（环径下限 190px，窗口矮于 720px 时再收到 118px）。底栏（刷新 / 清空）永远可见。
-- **v6 视觉与入场动效** —— 近黑底、唯一强调色蓝青；入场按编排落位（品牌头 → 视图 Tab / 时间窗 → 环与弧 → 指标 → 四行遥测 → 洞察 → 底栏），刷新走插值不重播。
-- **主环是扁平的** —— 四段色弧 + 环心读数 + 环外百分比，纯 SVG，**不做 3D**：透视没法转矢量、在窄栏上又占地方，代价大于收益。
+- Host 在 `turn/end` 用 `deriveTurnTokenUsage` 落盘到 profile 下的 JSON；Client 通过 Connection 认证路由读汇总、POST 清空。
+- 与 Web「本轮用量」同一套四桶字段，不做费用估算、不上传遥测。
+- 多路由 turn 无法拆分时记入 `__mixed__`；读盘异常（损坏 / 版本不兼容）会在面板提示，并尽量不影响继续查看。
 
-**计划中**
+**尚未实现**
 
-- Top3 截断（当前按来源是完整列表）。
+- 按来源列表的 Top3 + 展开（当前为完整列表）。
+- 可配置 `storagePath`、`retentionDays`（见「配置」）。
 
-### 两条取舍
-
-- **数据不出本机。** 统计写在 DSH profile 下的本地 JSON，Client 经认证路由读回。没有遥测上报、没有账号、没有后端。
-- **不重复造轮子。** token 计数直接复用 harness 自己的 `TokenUsageProjection` 四桶口径（`uncachedInputTokens` / `outputTokens` / `cacheReadTokens` / `cacheWriteTokens`，缺项按 0），与 Web「本轮用量」一致——不做第二套估算。
+视觉规格与更多成图见 [design/v6-preview.md](design/v6-preview.md)、[design/v6-visual-direction.md](design/v6-visual-direction.md)。
 
 ---
 
 ## 截图
 
-### v6 · 两套构图
+宽栏总览（1280×720，由 `UsageWide` 组件渲染导出，非手摆静态稿）：
 
-面板有**两套构图**：窄栏（不到 900px）走**竖屏**那一版；
-宽面板（≥900px，右栏切「全屏」时）走 **大号扁平环**双栏。
-判据是面板**实测宽度**，不是 `sidebar.fullscreen` 标志——
-窗口窄时右栏会自动全屏，那时可用宽度反而更小。
+![宽栏总览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png)
 
-| 宽面板（大号扁平环，1280×720） | 窄栏（竖屏，360×800） |
-|---|---|
-| ![宽面板](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png) | ![窄栏](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-360x800.png) |
-
-> 这几张是**真实组件**渲染出来的（`design/_v6_src/render-preview.mjs` 挂载
-> `src/client/views/UsageWide.tsx` / `src/client/views/UsageCompact.tsx` 后用 Chrome 截的），
-> 不是另画的静态稿。逐块对照表、视觉规矩与**实现偏差**见
-> [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-preview.md)。
-
-### v6 · 窄栏重做（360×800）
-
-窄栏（不到 900px 的右栏）从 v5.1 的「金融竖屏」再改一版，按
-[design/v6-visual-direction.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-visual-direction.md)
-重排：**上密下疏**，大数下面加了涨跌签与折线，右侧的环改成命中率表盘，
-指标卡从一枚高卡变成两枚横排，分类行加了行内微折线，洞察卡变成
-「小标题 + 说明 + 占比条」三层，底栏加了状态点。
-
-这一轮把窄栏从**一屏**拆成**三屏 + 一态骨架**：顶部的
-`OVERVIEW / TOP / ALERTS` 原本只是占位（除第一个全被禁用），
-现在是真开关——总览看整体、Top 看谁花的、告警看形状不对的地方，
-读数的时候身体换成骨架。三屏换的是身体，头永远一样。
-
-| 总览 | Top | 告警 | Loading 骨架 |
-|---|---|---|---|
-| ![总览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-360x800.png) | ![Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-360x800.png) | ![告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-360x800.png) | ![Loading](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-loading-360x800.png) |
-
-竖屏整屏只留**一种彩色**：四个 token 桶用同一色相的四档亮度表示
-（不是四种色相并排），涨跌签、指标条、洞察条一律走界面蓝青。
-告警的数字**全是推出来的**（峰值、占比爬升、增速掉队），
-不满足阈值就不报——面板只报 token，不报钱，也不假装有事。
-
-这一轮又补了**三组本来就在数据里、只是没被用起来**的统计：
-
-- **分模型缓存命中率**（Top 屏）：全局命中率是加权平均，量大的模型说了算；
-  真正该看的是「量跑在哪儿」——所以每个模型各算各的。
-  竖屏并进模型排行做一列，宽版独立成一张 `CACHE HIT` 卡。
-- **模型走向**（Top 屏）：每个模型 30 日的微折线 + 份额变化，
-  看谁在抢份额、谁在让份额。宿主本来每天每模型都存着四桶，
-  这一层只是把它摊开——**不迁数据、不改文件格式**。
-- **节律**（告警屏）：周末比工作日省多少、连着用了几天、峰谷比（峰值÷中位数）。
-
-窄屏一屏只装得下这么多，所以窄屏**挤进已有的卡**、宽版**独立成卡**——
-信息一样，密度不同。竖屏 Top 屏那张「按来源」卡在窄屏让位给了模型走向：
-它那两行本来就是模型行按 provider 求和的结果，信息是重复的。
-三屏都核对过高度，一屏装得下，不切不裁。
-
-> 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-meters/blob/main/design/v6-preview.md)。
-
-### v6 · 宽栏重做（1280×720）
-
-宽栏（≥900px）的卡片与标签与竖屏**同一套语言**：分段控件、描边药丸、
-两枚横排指标块、带行内微折线的分类列表、三层洞察卡、绿点底栏——
-满屏网格与发光规则线删干净。主视觉是一枚大号扁平环（不再是 3D 轨道矩阵），
-环**只留色、不留外发光**——四段桶色弧是 v6 令牌允许的位置，但弧上没有辉光、环心没有能量核。
-
-![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-1280x720.png)
-
-宽版也是三屏。Top 屏多一张 `CACHE HIT` 卡和一张 `MODEL TREND` 卡，告警屏多一张 `RHYTHM` 卡：
-
-| 宽版 Top | 宽版告警 |
-|---|---|
-| ![宽版 Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-top-1280x768.png) | ![宽版告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-meters/main/design/dsh-meters-v6-alerts-1280x960.png) |
-
-> 宽版是**独立组件**（`src/client/views/UsageWide.tsx`），不是把竖屏拉宽：
-> 环的大小是**量出来的**（面板比一屏高多少就把环压小多少），
-> 因为宿主右栏的高度随窗口变，固定尺寸定不了这件事。
-
-（`UsageSummary.daily`，30 日零填充、旧→新）。涨跌签比的是
-「当前窗口日均 vs 前一等长窗口日均」，30 日窗退化成后 15 天 vs 前 15 天；
-**比不出来就不画**。
-
-**稿子与实现同源**：Figma 里那帧（页 `v6 · 视觉方向与参考`）的坐标与矢量
-**由实现渲染导出**（`PREVIEW_DUMP=1` 出几何表、`PREVIEW_SVG=1` 出 SVG），
-不是照着成图手摆的——改实现后重跑脚本即可同步。
-
-竖屏这一版**不含**花费估算与命令入口：视图 Tab 因此只剩 `总览 / Top / 告警`
-（没有「花费」），底栏是状态条 + 刷新 / 清空（两枚按钮各带一枚 11px Lucide 图标，
-但**保留文字标签**——清空不可撤销，不能只给一个垃圾桶）。
+窄栏三屏、Top / 告警等其它视角见 [design/v6-preview.md](design/v6-preview.md)。
 
 ---
 
@@ -210,14 +99,10 @@ pnpm dsh web
 
 ## 配置
 
-<!-- TODO(配置)：下列项均未实现 -->
+当前没有面向用户的配置项。后续可能支持：
 
-当前**没有任何配置项**。计划中：
-
-| 配置 | 说明 | 状态 |
-|------|------|------|
-| `storagePath` | 统计文件路径（默认 DSH profile 下） | 🚧 计划中 |
-| `retentionDays` | 保留天数（默认 30） | 🚧 计划中 |
+- `storagePath` —— 统计文件路径（默认在 DSH profile 下）
+- `retentionDays` —— 保留天数（默认 30）
 
 ---
 
@@ -302,7 +187,7 @@ pnpm run build:client   # → lib/client.js（浏览器半）
 
 | 产物 | 体积 | 什么时候拉 |
 |------|------|-----------|
-| `lib/client.js`（入口） | ≈65 KB（实测 66,504 B） | 面板打开即加载 |
+| `lib/client.js`（入口） | ≈69 KB（实测 70,767 B） | 面板打开即加载 |
 
 浏览器半只有**一个产物**：没有 3D 就没有那份 550 KB 的 three.js 分片，
 也不需要按需加载那一套机制。

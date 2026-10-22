@@ -13,7 +13,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import { USAGE_CLEAR_PATH, USAGE_SUMMARY_PATH } from './protocol.js'
-import { clearUsage, readUsageSummary } from './usage-store.js'
+import { StatsWriteBlockedError, clearUsage, readUsageSummary } from './usage-store.js'
 
 /** 汇总与清空响应都不应被任何中间缓存。 */
 const NO_STORE = { 'cache-control': 'no-store' } as const
@@ -46,6 +46,9 @@ export function registerUsageRoutes(ctx: Context): void {
     fetch: () => clearUsage().then(
       () => Response.json({ cleared: true }, { headers: NO_STORE }),
       (error: unknown) => {
+        if (error instanceof StatsWriteBlockedError) {
+          return new Response('usage stats version unsupported', { status: 409 })
+        }
         console.error('[dsh-usage-meters] 清空用量失败', error)
         return new Response('usage clear failed', { status: 500 })
       },

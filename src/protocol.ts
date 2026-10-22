@@ -78,7 +78,30 @@ export interface UsageSummary {
   dailyByProvider: UsageProviderDaily[]
   /** 汇总生成时刻（毫秒时间戳）。 */
   generatedAt: number
+  /**
+   * 读盘时的提示（损坏已隔离、版本不兼容、历史归因口径等）。
+   *
+   * 有 warning 时面板仍可展示 `today` / `d7` / `d30` 等字段（多为空或仅内存汇总），
+   * 但 `unsupported` 时 Host 禁止写入与清空。
+   */
+  warning?: UsageSummaryWarning
 }
+
+/** 汇总响应上的读盘 / 兼容性提示。 */
+export interface UsageSummaryWarning {
+  code: 'corrupt' | 'unsupported' | 'legacy'
+  detail?: string
+}
+
+/**
+ * 多路由 turn 的归因键：`TurnTokenUsage` 的 token 是整轮合计，无法按 route 拆分时整轮记入此键。
+ *
+ * 与 `DayRollup.byProvider` 的键一致（无 `provider/model` 斜杠形式）。
+ */
+export const MIXED_PROVIDER_KEY = '__mixed__'
+
+/** 无 `routes` 时的归因键。 */
+export const UNKNOWN_PROVIDER_KEY = 'unknown'
 
 /** 汇总路由：服务端路由键（绝对路径）。 */
 export const USAGE_SUMMARY_PATH = '/api/usage.summary'
@@ -142,11 +165,20 @@ function isProviderDaily(value: unknown): value is UsageProviderDaily {
  * @param value - 解码后的 JSON。
  * @returns 该值是否是一份完整合法的汇总。
  */
+function isSummaryWarning(value: unknown): value is UsageSummaryWarning {
+  if (!isRecord(value)) return false
+  if (value.code !== 'corrupt' && value.code !== 'unsupported' && value.code !== 'legacy') return false
+  if (value.detail !== undefined && typeof value.detail !== 'string') return false
+  return true
+}
+
 export function isUsageSummary(value: unknown): value is UsageSummary {
   if (!isRecord(value)) return false
   if (!isBuckets(value.today) || !isBuckets(value.d7) || !isBuckets(value.d30)) return false
   if (!Array.isArray(value.byProvider) || !value.byProvider.every(isProviderTotal)) return false
   if (!Array.isArray(value.daily) || !value.daily.every(isDailyPoint)) return false
   if (!Array.isArray(value.dailyByProvider) || !value.dailyByProvider.every(isProviderDaily)) return false
-  return isCount(value.generatedAt)
+  if (!isCount(value.generatedAt)) return false
+  if (value.warning !== undefined && !isSummaryWarning(value.warning)) return false
+  return true
 }

@@ -1,5 +1,8 @@
 # DSH Meters 动效说明
 
+> **文档性质**：动效时间表以 `src/client/motion/usage-motion.ts` 与当前 v6 实现为准；
+> 文中若仍出现已删除的 3D 环或旧版时间轴，视为历史稿，勿按字面实现。
+
 **适用对象**：Usage 侧栏（右栏的一个 Tab）
 **对应设计稿**：`design/` 下的预览图（`dsh-meters-v6-360x800.png`、`dsh-meters-v6-1280x720.png`）
 **气质**：克制科幻 HUD · 流畅短促 · 可读优先

@@ -10,6 +10,67 @@
  */
 import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
 
+/** 四桶 token 总和。 */
+export function bucketTotal(buckets: UsageBuckets): number {
+  return buckets.uncachedInputTokens
+    + buckets.outputTokens
+    + buckets.cacheReadTokens
+    + buckets.cacheWriteTokens
+}
+
+function addBuckets(a: UsageBuckets, b: UsageBuckets): UsageBuckets {
+  return {
+    uncachedInputTokens: a.uncachedInputTokens + b.uncachedInputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+    cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+  }
+}
+
+/**
+ * 截取日序列的最近 `days` 天（仍保持旧→新顺序）。
+ * @param daily - 完整日序列（通常 30 日）。
+ * @param days - 窗口天数。
+ */
+export function windowSlice(daily: readonly UsageDailyPoint[], days: number): UsageDailyPoint[] {
+  if (days <= 0) return []
+  if (daily.length <= days) return [...daily]
+  return daily.slice(-days)
+}
+
+/**
+ * 按窗口从 `dailyByProvider` 汇总 provider 拆分。
+ *
+ * Host 的 `byProvider` 固定是 30 日；面板切换今日 / 7 日时必须用此函数，
+ * 保证分子分母同属一个窗口。
+ */
+export function providersInWindow(
+  dailyByProvider: readonly UsageProviderDaily[],
+  days: number,
+): UsageProviderTotal[] {
+  const sliceLen = Math.max(0, days)
+  const totals: UsageProviderTotal[] = []
+  for (const entry of dailyByProvider) {
+    const slice = entry.daily.slice(-sliceLen)
+    let acc: UsageBuckets = {
+      uncachedInputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    }
+    for (const point of slice) {
+      acc = addBuckets(acc, point)
+    }
+    if (bucketTotal(acc) <= 0) continue
+    totals.push({
+      provider: entry.provider,
+      model: entry.model,
+      ...acc,
+    })
+  }
+  return totals.sort((a, b) => bucketTotal(b) - bucketTotal(a))
+}
+
 /**
  * 缓存命中率：缓存读取占「输入总量」的比例。
  *
@@ -106,6 +167,7 @@ export function dailySeries(
  * @returns 变化百分比；没有可比数据时是 null。
  */
 export function windowDelta(daily: readonly UsageDailyPoint[], days: number): number | null {
+  if (days <= 1) return null
   const totals = dailyTotals(daily)
   const half = Math.floor(totals.length / 2)
   const span = days >= half ? half : days

@@ -13,7 +13,7 @@
  * 组件自己不绑 locale：`t` 由调用方传进来。
  */
 import type { ReactNode } from 'react'
-import type { UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
+import { MIXED_PROVIDER_KEY, UNKNOWN_PROVIDER_KEY, type UsageDailyPoint, type UsageProviderDaily, type UsageProviderTotal } from '../../protocol.js'
 import { MiniGauge, Sparkline } from '../components/UsageMeters.js'
 import { RING_KEYS } from '../components/UsageRing.js'
 import { modelHitRates, modelShareShift } from '../data/usage-metrics.js'
@@ -83,7 +83,13 @@ function cardTitle(text: string): ReactNode {
 }
 
 /** provider/model 的显示名。 */
-function modelLabel(provider: UsageProviderTotal): string {
+function modelLabel(provider: UsageProviderTotal, t: UsageTranslate): string {
+  if (provider.provider === UNKNOWN_PROVIDER_KEY && provider.model.length === 0) {
+    return t('provider.unknown')
+  }
+  if (provider.provider === MIXED_PROVIDER_KEY && provider.model.length === 0) {
+    return t('provider.mixed')
+  }
   return `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`
 }
 
@@ -502,7 +508,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
     ? null
     : weakest.share >= 20
       ? t('top.hitRateLow', {
-        model: modelLabel(weakest.provider),
+        model: modelLabel(weakest.provider, t),
         rate: `${(weakest.rate * 100).toFixed(1)}%`,
         share: weakest.share.toFixed(0),
       })
@@ -538,7 +544,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
         <RankRow
           key={`${model.provider.provider}/${model.provider.model}`}
           index={String(index + 1).padStart(2, '0')}
-          label={modelLabel(model.provider)}
+          label={modelLabel(model.provider, t)}
           value={formatCount(model.value)}
           share={percentOf(model.value, total)}
           ratio={total > 0 ? model.value / total : 0}
@@ -575,7 +581,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
       {hitRates.map((item) => (
         <HitRateRow
           key={`${item.provider.provider}/${item.provider.model}`}
-          label={modelLabel(item.provider)}
+          label={modelLabel(item.provider, t)}
           rate={item.rate}
           share={item.share}
           globalRate={rate}

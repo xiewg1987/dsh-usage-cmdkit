@@ -46,8 +46,10 @@ harness 自己的 `ui-deliverables`（`/api/changes.summary` 等）、`ui-client
 | `daily` | 近 30 日日序列，**从旧到新**，无记录日补零 |
 | `dailyByProvider` | 与 `byProvider` 同序的逐日序列（模型走向等） |
 | `generatedAt` | 汇总生成时刻（毫秒时间戳） |
+| `warning`（可选） | 读盘提示：`corrupt` / `unsupported` / `legacy` |
 
 Client 用 `isUsageSummary()` 校验；缺字段或形状不对则当作读失败。
+`warning.code === 'unsupported'` 时禁用「清空」（Host 对 `POST /api/usage.clear` 返回 409）。
 
 ## Client
 

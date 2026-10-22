@@ -28,16 +28,20 @@ export async function fetchUsageSummary(signal: AbortSignal): Promise<UsageSumma
   }
 }
 
+/** 清空请求的结果。 */
+export type ClearUsageResult = 'ok' | 'blocked' | 'failed'
+
 /**
  * 请 Host 清空统计。
  * @param signal - 取消信号。
- * @returns Host 是否确认清空。
+ * @returns `blocked` 表示统计文件版本不兼容（409）。
  */
-export async function clearUsageStats(signal: AbortSignal): Promise<boolean> {
+export async function clearUsageStats(signal: AbortSignal): Promise<ClearUsageResult> {
   try {
     const response = await fetch(USAGE_CLEAR_ROUTE, { method: 'POST', signal })
-    return response.ok
+    if (response.status === 409) return 'blocked'
+    return response.ok ? 'ok' : 'failed'
   } catch {
-    return false
+    return 'failed'
   }
 }

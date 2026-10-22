@@ -33,12 +33,10 @@ import type { UsageBuckets, UsageProviderDaily, UsageProviderTotal } from '../..
 import { RING_KEYS } from '../components/UsageRing.js'
 import { UsageCompactView } from './UsageCompact.js'
 import { UsageWideView } from './UsageWide.js'
-import { UsageTopView } from './UsageTopView.js'
-import { UsageAlertsView } from './UsageAlertsView.js'
 import type { UsageView } from '../components/UsageHeader.js'
 import type { TelemetryName } from '../components/UsageTelemetry.js'
 import { IconRefresh, IconTrash } from '../components/usage-icons.js'
-import { hitRate } from '../data/usage-metrics.js'
+import { hitRate, providersInWindow, windowSlice } from '../data/usage-metrics.js'
 import { TIMING } from '../motion/usage-motion.js'
 import { ghostButtonStyle } from '../theme/usage-buttons.js'
 import { MUTED } from '../theme/usage-theme.js'
@@ -121,7 +119,15 @@ const EMPTY_BUCKETS: UsageBuckets = {
  */
 export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   // 数据、时间窗、清空状态都住在共享 store 里：面板被宿主重挂时数据留在原地。
-  const { summary, status, range, clearing } = useUsageState()
+  const {
+    summary,
+    status,
+    range,
+    clearing,
+    stale,
+    lastSuccessAt,
+    clearBlocked,
+  } = useUsageState()
   const [surface, setSurface] = useState<Surface>({ width: 0, height: 0, wide: false })
   /**
    * 当前视图：总览 / Top / 告警。
@@ -169,15 +175,23 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     return summary.d30
   }, [summary, range])
 
-  const providers = useMemo<readonly UsageProviderTotal[]>(
-    () => summary?.byProvider ?? [],
-    [summary],
-  )
-
-  /** 每个 provider/model 的逐日序列：Top 屏的「模型走向」用。 */
+  /** 每个 provider/model 的逐日序列：Top 屏「模型走向」固定 30 日。 */
   const dailyByProvider = useMemo<readonly UsageProviderDaily[]>(
     () => summary?.dailyByProvider ?? [],
     [summary],
+  )
+
+  const windowDays = RANGE_DAYS[range]
+
+  /** 与所选时间窗对齐的日序列与 provider 拆分。 */
+  const dailyFull = summary?.daily ?? []
+  const windowDaily = useMemo(
+    () => windowSlice(dailyFull, windowDays),
+    [dailyFull, windowDays],
+  )
+  const windowProviders = useMemo<readonly UsageProviderTotal[]>(
+    () => providersInWindow(dailyByProvider, windowDays),
+    [dailyByProvider, windowDays],
   )
 
   const shown = buckets ?? EMPTY_BUCKETS
@@ -193,6 +207,11 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
   )
   const d7Total = useMemo<number>(
     () => (summary === undefined ? 0 : RING_KEYS.reduce((sum, key) => sum + summary.d7[key], 0)),
+    [summary],
+  )
+  /** 指标块占比分母：固定 30 日总量。 */
+  const d30Total = useMemo<number>(
+    () => (summary === undefined ? 0 : RING_KEYS.reduce((sum, key) => sum + summary.d30[key], 0)),
     [summary],
   )
 
@@ -260,7 +279,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         type="button"
         data-usage-clear=""
         style={ghostButton}
-        disabled={clearing}
+        disabled={clearing || clearBlocked}
         onClick={() => void clearUsage()}
       >
         <IconTrash size={11} color={MUTED} strokeWidth={2} />
@@ -269,18 +288,64 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     </>
   )
 
-  /** 底栏状态行：仓库名 · 同步状态 · 本机状态。 */
-  const footerStatus = `${t('footer.repo')} · ${t('footer.synced')} · ${t('footer.local')}`
-
   /** 底栏版本号：单独一段。 */
   const footerVersion = `v${PLUGIN_VERSION}`
 
-  /** 读取中 / 读取失败的提示。 */
-  const notice = status === 'loading'
-    ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>
-    : status === 'failed'
-      ? <p style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>
-      : null
+  const formatLocalTime = (ms: number): string => new Date(ms).toLocaleString(undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const footerDot: 'ok' | 'off' = (
+    status === 'ready' && !stale && summary !== undefined
+  ) ? 'ok' : 'off'
+
+  const footerStatus = useMemo(() => {
+    const parts: string[] = [t('footer.repo')]
+    if (status === 'loading' && summary === undefined) {
+      parts.push(t('footer.loading'))
+    } else if (status === 'failed' && summary === undefined) {
+      parts.push(t('footer.failed'))
+    } else if (stale) {
+      parts.push(t('footer.stale'))
+    } else {
+      parts.push(t('footer.synced'))
+    }
+    if (lastSuccessAt !== undefined) {
+      parts.push(t('footer.updated', { time: formatLocalTime(lastSuccessAt) }))
+    } else if (summary?.generatedAt !== undefined && status === 'ready') {
+      parts.push(t('footer.dataAt', { time: formatLocalTime(summary.generatedAt) }))
+    }
+    return parts.join(' · ')
+  }, [summary, status, stale, lastSuccessAt, t])
+
+  const warningText = summary?.warning === undefined
+    ? undefined
+    : summary.warning.code === 'corrupt'
+      ? t('warning.corrupt')
+      : summary.warning.code === 'unsupported'
+        ? t('warning.unsupported')
+        : t('warning.legacy')
+
+  /** 读取中 / 失败 / 读盘 warning。 */
+  const notice = (() => {
+    const items: ReactNode[] = []
+    if (warningText !== undefined) {
+      items.push(<p key="warn" style={{ margin: 0, fontSize: 12, color: MUTED }}>{warningText}</p>)
+    }
+    if (status === 'loading' && summary === undefined) {
+      items.push(<p key="load" style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.loading')}</p>)
+    } else if (status === 'failed' && summary === undefined) {
+      items.push(<p key="fail" style={{ margin: 0, fontSize: 12, color: MUTED }}>{t('state.failed')}</p>)
+    }
+    if (items.length === 0) return null
+    if (items.length === 1) return items[0]
+    return <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{items}</div>
+  })()
+
+  const showSkeleton = status === 'loading' && summary === undefined
 
   /**
    * 窄栏：v6 竖屏那一版。
@@ -308,19 +373,20 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         onWindow={(value) => setUsageRange(value as UsageRange)}
         rate={rate}
         uncachedShare={uncachedShare}
-        days={RANGE_DAYS[range]}
-        daily={summary?.daily}
+        days={windowDays}
+        daily={windowDaily}
+        rhythmDaily={dailyFull}
         todayTotal={todayTotal}
         d7Total={d7Total}
-        providers={providers}
+        d30Total={d30Total}
+        providers={windowProviders}
         dailyByProvider={dailyByProvider}
         view={view}
         onView={setView}
-        loading={status === 'loading'}
+        loading={showSkeleton}
         notice={notice}
-        // 窄栏底栏不重复包名：品牌头已经写着「DSH Meters」，
-        // 这里再写一遍「dsh-usage-meters」只会把版本号挤掉。
-        status={`${t('footer.synced')} · ${t('footer.local')}`}
+        status={footerStatus}
+        footerDot={footerDot}
         version={footerVersion}
         actions={actions}
         dense={tight}
@@ -353,17 +419,20 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       windowValue={range}
       onWindow={(value) => setUsageRange(value as UsageRange)}
       uncachedShare={uncachedShare}
-      days={RANGE_DAYS[range]}
-      daily={summary?.daily}
+      days={windowDays}
+      daily={windowDaily}
+      rhythmDaily={dailyFull}
       todayTotal={todayTotal}
       d7Total={d7Total}
-      providers={providers}
+      d30Total={d30Total}
+      providers={windowProviders}
       dailyByProvider={dailyByProvider}
       view={view}
       onView={setView}
       windowShort={windowShort}
       notice={notice}
       status={footerStatus}
+      footerDot={footerDot}
       version={footerVersion}
       actions={actions}
       dense={tight}

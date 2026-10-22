@@ -118,6 +118,10 @@ export interface UsageCompactProps {
   todayTotal: number
   /** 近 7 日总量（指标块用）。 */
   d7Total: number
+  /** 近 30 日总量（指标块占比分母）。 */
+  d30Total: number
+  /** 近 30 日日序列（节律统计用，与所选窗口无关）。 */
+  rhythmDaily?: readonly UsageDailyPoint[]
   /** 按 provider/model 的拆分（Top 屏用）。 */
   providers: readonly UsageProviderTotal[]
   /** 每个 provider/model 的逐日序列（Top 屏的模型走向用）。 */
@@ -132,6 +136,8 @@ export interface UsageCompactProps {
   notice?: ReactNode
   /** 底栏状态行。 */
   status: string
+  /** 底栏状态点。 */
+  footerDot?: 'ok' | 'off'
   /** 底栏版本号（单独一段，和状态行之间用中点隔开）。 */
   version?: string
   /** 底栏动作区。 */
@@ -171,6 +177,8 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     daily,
     todayTotal,
     d7Total,
+    d30Total,
+    rhythmDaily,
     providers,
     dailyByProvider,
     view,
@@ -178,6 +186,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     loading,
     notice,
     status,
+    footerDot,
     version,
     actions,
     dense,
@@ -229,7 +238,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
   )
 
   /** 节律：用量在时间上的形状（告警屏用）。 */
-  const rhythm = useMemo(() => deriveRhythm(daily ?? []), [daily])
+  const rhythm = useMemo(() => deriveRhythm(rhythmDaily ?? daily ?? []), [rhythmDaily, daily])
 
   const hero = (
     <div
@@ -306,13 +315,15 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       <StatTile
         label={t('stat.today')}
         value={formatCompact(todayTotal)}
-        share={total > 0 ? percentOf(todayTotal, total) : 0}
+        sub={t('stat.ofD30')}
+        share={d30Total > 0 ? percentOf(todayTotal, d30Total) : 0}
       />
       <div aria-hidden="true" style={{ width: 1, background: HAIRLINE, flex: 'none' }} />
       <StatTile
         label={t('stat.d7')}
         value={formatCompact(d7Total)}
-        share={total > 0 ? percentOf(d7Total, total) : 0}
+        sub={t('stat.ofD30')}
+        share={d30Total > 0 ? percentOf(d7Total, d30Total) : 0}
       />
     </div>
   )
@@ -482,7 +493,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
                 status={status}
                 version={version}
                 size="compact"
-                dot="ok"
+                dot={footerDot ?? 'off'}
                 actions={actions}
               />
             </div>

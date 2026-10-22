@@ -21,7 +21,7 @@
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
+import { MIXED_PROVIDER_KEY, UNKNOWN_PROVIDER_KEY, type UsageBuckets, type UsageDailyPoint, type UsageProviderDaily, type UsageProviderTotal } from '../../protocol.js'
 import {
   Insight,
   ProviderList,
@@ -115,6 +115,10 @@ export interface UsageWideProps {
   todayTotal: number
   /** 近 7 日总量（指标块用）。 */
   d7Total: number
+  /** 近 30 日总量（指标块占比分母）。 */
+  d30Total: number
+  /** 近 30 日日序列（节律统计用）。 */
+  rhythmDaily?: readonly UsageDailyPoint[]
   /** 按来源的拆分。 */
   providers: readonly UsageProviderTotal[]
   /** 每个 provider/model 的逐日序列（Top 屏的模型走向用）。 */
@@ -129,6 +133,8 @@ export interface UsageWideProps {
   notice?: ReactNode
   /** 底栏状态行。 */
   status: string
+  /** 底栏状态点。 */
+  footerDot?: 'ok' | 'off'
   /** 底栏版本号。 */
   version?: string
   /** 底栏动作区。 */
@@ -164,6 +170,8 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     daily,
     todayTotal,
     d7Total,
+    d30Total,
+    rhythmDaily,
     providers,
     dailyByProvider,
     view,
@@ -171,6 +179,7 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     windowShort,
     notice,
     status,
+    footerDot,
     version,
     actions,
     dense,
@@ -254,7 +263,7 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     [daily, buckets, total],
   )
   /** 节律：用量在时间上的形状，和竖屏是同一份推导。 */
-  const rhythm = useMemo(() => deriveRhythm(daily ?? []), [daily])
+  const rhythm = useMemo(() => deriveRhythm(rhythmDaily ?? daily ?? []), [rhythmDaily, daily])
 
   /**
    * 涨跌签：当前窗口的日均，跟前一个等长窗口的日均比。
@@ -336,13 +345,15 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
       <StatTile
         label={t('stat.today')}
         value={formatCompact(todayTotal)}
-        share={total > 0 ? percentOf(todayTotal, total) : 0}
+        sub={t('stat.ofD30')}
+        share={d30Total > 0 ? percentOf(todayTotal, d30Total) : 0}
       />
       <div aria-hidden="true" style={{ width: 1, background: HAIRLINE, flex: 'none' }} />
       <StatTile
         label={t('stat.d7')}
         value={formatCompact(d7Total)}
-        share={total > 0 ? percentOf(d7Total, total) : 0}
+        sub={t('stat.ofD30')}
+        share={d30Total > 0 ? percentOf(d7Total, d30Total) : 0}
         color={POSITIVE}
       />
     </div>
@@ -383,9 +394,11 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
         title={t('provider.title')}
         items={providers.map((provider) => ({
           key: `${provider.provider}/${provider.model}`,
-          label: provider.provider === 'unknown'
+          label: provider.provider === UNKNOWN_PROVIDER_KEY && provider.model.length === 0
             ? t('provider.unknown')
-            : `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`,
+            : provider.provider === MIXED_PROVIDER_KEY && provider.model.length === 0
+              ? t('provider.mixed')
+              : `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`,
           value: formatCount(RING_KEYS.reduce((sum, key) => sum + provider[key], 0)),
         }))}
       />
@@ -435,7 +448,7 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
       <StatusFooter
         status={status}
         version={version}
-        dot="ok"
+        dot={footerDot ?? 'off'}
         actions={actions}
       />
     </div>

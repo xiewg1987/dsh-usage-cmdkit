@@ -102,8 +102,16 @@ export function UsageAlertsView(props: UsageAlertsViewProps): ReactNode {
   const peak = totals.length === 0 ? 0 : Math.max(...totals)
   const peakIndex = totals.indexOf(peak)
   const peakDay = daily !== undefined && daily[peakIndex] !== undefined ? shortDay(daily[peakIndex].day) : ''
-  /** 最近一次有记录的那天：面板里的数据到哪天为止，就是哪天。 */
-  const lastDay = daily !== undefined && daily.length > 0 ? shortDay(daily[daily.length - 1].day) : ''
+  /** 窗口内最近一次有用量的日历日（补零日不算「有记录」）。 */
+  const lastDay = (() => {
+    if (daily === undefined || daily.length === 0) return ''
+    for (let index = daily.length - 1; index >= 0; index -= 1) {
+      const point = daily[index]
+      const sum = RING_KEYS.reduce((acc, key) => acc + point[key], 0)
+      if (sum > 0) return shortDay(point.day)
+    }
+    return ''
+  })()
   const delta = windowDelta(daily ?? [], days)
   const half = Math.floor(totals.length / 2)
   const span = days >= half ? half : days

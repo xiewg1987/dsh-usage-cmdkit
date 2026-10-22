@@ -25,22 +25,39 @@ export interface UsageState {
   readonly summary: UsageSummary | undefined
   /** 读取状态。 */
   readonly status: UsageStatus
+  /**
+   * 有缓存数据但最近一次读取失败，或正在后台刷新。
+   *
+   * 与 `status === 'failed'` 且 `summary === undefined`（完全读不到）区分开。
+   */
+  readonly stale: boolean
+  /** 最近一次成功读回汇总的时间（浏览器本地时钟）。 */
+  readonly lastSuccessAt: number | undefined
   /** 当前时间窗。 */
   readonly range: UsageRange
   /** 清空进行中。 */
   readonly clearing: boolean
+  /** 统计文件版本不兼容，禁止清空。 */
+  readonly clearBlocked: boolean
 }
 
 /** 初始状态：还没读过数据，时间窗停在 30 日。 */
 const initial: UsageState = {
   summary: undefined,
   status: 'loading',
+  stale: false,
+  lastSuccessAt: undefined,
   range: 'd30',
   clearing: false,
+  clearBlocked: false,
 }
 
 let state: UsageState = initial
 const listeners = new Set<() => void>()
+
+/** 失败后再次自动读取的最小间隔（毫秒）。 */
+const RETRY_MS = 5000
+let lastFailedAt = 0
 
 /**
  * 写一次状态并通知订阅者。
@@ -80,44 +97,64 @@ export function useUsageState(): UsageState {
 /** 正在进行的读取；新一轮读取会中止上一轮。 */
 let inflight: AbortController | undefined
 
-/** 是否已经读过至少一次。 */
-let loaded = false
+function clearBlockedFromSummary(summary: UsageSummary | undefined): boolean {
+  return summary?.warning?.code === 'unsupported'
+}
 
 /**
  * 读一次用量汇总并写进共享状态。
- * @returns 读取结束后的状态。
  */
 export async function loadUsage(): Promise<void> {
   inflight?.abort()
   const controller = new AbortController()
   inflight = controller
-  commit({ status: 'loading' })
+  const hadSummary = state.summary !== undefined
+  if (!hadSummary) {
+    commit({ status: 'loading', stale: false })
+  } else {
+    commit({ stale: true })
+  }
   const value = await fetchUsageSummary(controller.signal)
   if (controller.signal.aborted) return
-  commit({ summary: value, status: value === undefined ? 'failed' : 'ready' })
+  if (value === undefined) {
+    lastFailedAt = Date.now()
+    if (hadSummary) {
+      commit({ status: 'ready', stale: true })
+    } else {
+      commit({ summary: undefined, status: 'failed', stale: false, clearBlocked: false })
+    }
+    return
+  }
+  commit({
+    summary: value,
+    status: 'ready',
+    stale: false,
+    lastSuccessAt: Date.now(),
+    clearBlocked: clearBlockedFromSummary(value),
+  })
 }
 
 /**
- * 首次挂载时读一次；已经读过就不再读。
- *
- * 面板被重挂（切 Tab 切回来）时再调它一次，但只有第一次真的发起请求。
+ * 挂载时读一次；失败后在冷却过后允许重试（切 Tab 再回来会再调）。
  */
 export function ensureUsageLoaded(): void {
-  if (loaded) return
-  loaded = true
+  if (inflight !== undefined) return
+  if (state.status === 'ready' && !state.stale && state.summary !== undefined) return
+  if (state.status === 'failed' || state.stale) {
+    if (Date.now() - lastFailedAt < RETRY_MS) return
+  }
   void loadUsage()
 }
 
 /**
  * 请宿主清空统计，然后重新读一次。
- * @returns 清空与重读都结束后的状态。
  */
 export async function clearUsage(): Promise<void> {
-  if (state.clearing) return
+  if (state.clearing || state.clearBlocked) return
   commit({ clearing: true })
-  const cleared = await clearUsageStats(new AbortController().signal)
+  const result = await clearUsageStats(new AbortController().signal)
   commit({ clearing: false })
-  if (cleared) await loadUsage()
+  if (result === 'ok') await loadUsage()
 }
 
 /**
