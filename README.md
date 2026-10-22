@@ -164,8 +164,6 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 
 ## 安装
 
-<!-- TODO(发布)：包发布前先占位，发布后核对下面的命令 -->
-
 从 Git 装（开发 / 预览）：
 
 ```powershell
@@ -174,7 +172,7 @@ pnpm dsh plugin --profile web add github:xiewg1987/dsh-usage-meters
 pnpm dsh web
 ```
 
-从 npm 装（发布后）：
+从 npm 装：
 
 ```powershell
 npm i -g dsh-usage-meters
