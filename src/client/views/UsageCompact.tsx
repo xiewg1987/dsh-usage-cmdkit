@@ -38,6 +38,7 @@ import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry
 import { DeltaChip, MiniGauge, Sparkline, StatTile } from '../components/UsageMeters.js'
 import { deriveAlerts } from '../data/usage-alerts.js'
 import { dailySeries, dailyTotals, windowDelta } from '../data/usage-metrics.js'
+import { deriveRhythm } from '../data/usage-rhythm.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -224,6 +225,9 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     [daily, buckets, total],
   )
 
+  /** 节律：用量在时间上的形状（告警屏用）。 */
+  const rhythm = useMemo(() => deriveRhythm(daily ?? []), [daily])
+
   const hero = (
     <div
       ref={heroRef}
@@ -358,6 +362,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       daily={daily}
       windowShort={windowShort}
       dense={dense}
+      hitRateLayout="column"
     />
   ) : view === 'alerts' ? (
     <UsageAlertsView
@@ -366,6 +371,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       windowShort={windowShort}
       daily={daily}
       days={days}
+      rhythm={rhythm}
     />
   ) : (
     <>

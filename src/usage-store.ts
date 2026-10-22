@@ -136,6 +136,14 @@ function emptyFile(retentionDays: number): UsageStatsFile {
   return { version: FILE_VERSION, retentionDays, days: {} }
 }
 
+/** 四桶之和：面板上显示的「用量」就是这个数。 */
+function bucketTotal(buckets: TokenBuckets): number {
+  return buckets.uncachedInputTokens
+    + buckets.outputTokens
+    + buckets.cacheReadTokens
+    + buckets.cacheWriteTokens
+}
+
 async function readStatsFile(path: string): Promise<UsageStatsFile> {
   try {
     const raw = await readFile(path, 'utf8')
@@ -298,9 +306,15 @@ export function summarize(file: UsageStatsFile, nowMs: number = Date.now()): Usa
     today: sumWindow(1),
     d7: sumWindow(WINDOWS.d7),
     d30: sumWindow(WINDOWS.d30),
-    byProvider: [...byProvider.values()].sort(
-      (a, b) => (b.uncachedInputTokens + b.outputTokens) - (a.uncachedInputTokens + a.outputTokens),
-    ),
+    /**
+     * 按四桶总和降序。
+     *
+     * 排序键必须和面板显示的「用量」是同一个数：Top 屏里每行显示的是四桶之和，
+     * 头部占比环算的也是四桶之和。以前这里按 `未缓存输入 + 输出` 排，
+     * 排序依据和显示值不是一回事——缓存命中极高的模型会被排到后面，
+     * 环里算出来的却不是它。口径统一到四桶，排序和显示才对得上。
+     */
+    byProvider: [...byProvider.values()].sort((a, b) => bucketTotal(b) - bucketTotal(a)),
     daily,
     generatedAt: nowMs,
   }

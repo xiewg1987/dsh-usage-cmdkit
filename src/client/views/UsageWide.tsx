@@ -33,6 +33,7 @@ import { UsageTelemetry, type TelemetryName } from '../components/UsageTelemetry
 import { DeltaChip, Sparkline, StatTile } from '../components/UsageMeters.js'
 import { dailySeries, dailyTotals, hitRate, windowDelta } from '../data/usage-metrics.js'
 import { deriveAlerts } from '../data/usage-alerts.js'
+import { deriveRhythm } from '../data/usage-rhythm.js'
 import { UsageTopView } from './UsageTopView.js'
 import { UsageAlertsView } from './UsageAlertsView.js'
 import { dropIn, riseIn } from '../motion/usage-motion.js'
@@ -249,6 +250,8 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     () => deriveAlerts({ daily: daily ?? [], buckets, total }),
     [daily, buckets, total],
   )
+  /** 节律：用量在时间上的形状，和竖屏是同一份推导。 */
+  const rhythm = useMemo(() => deriveRhythm(daily ?? []), [daily])
 
   /**
    * 涨跌签：当前窗口的日均，跟前一个等长窗口的日均比。
@@ -543,6 +546,8 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
                 windowShort={windowShort}
                 daily={daily}
                 days={days}
+                rhythm={rhythm}
+                rhythmLayout="card"
               />
             </div>
           )}

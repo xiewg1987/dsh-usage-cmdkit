@@ -16,7 +16,9 @@ import type { ReactNode } from 'react'
 import type { UsageDailyPoint } from '../../protocol.js'
 import { RING_KEYS } from '../components/UsageRing.js'
 import { Sparkline } from '../components/UsageMeters.js'
+import { UsageRhythmCard } from '../components/UsageRhythmCard.js'
 import { dailyTotals, windowDelta } from '../data/usage-metrics.js'
+import type { UsageRhythm } from '../data/usage-rhythm.js'
 import type { UsageAlert, UsageAlertLevel } from '../data/usage-alerts.js'
 import {
   ACCENT_CYAN,
@@ -44,6 +46,21 @@ export interface UsageAlertsViewProps {
   daily?: readonly UsageDailyPoint[]
   /** 当前时间窗覆盖的天数。 */
   days: number
+  /**
+   * 节律统计（可选）。
+   *
+   * 给不给都行：给了就报这一屏的「形状」——
+   * 周末 / 工作日的比、连着用了几天、峰谷比。
+   * 摆法由调用方定（见 `rhythmLayout`）。
+   */
+  rhythm?: UsageRhythm
+  /**
+   * 节律的摆法。
+   *
+   * - `strip`：一行紧凑数字，挂进「每日总量」卡里（竖屏 360 宽）。
+   * - `card`：一张独立的卡（宽版）。
+   */
+  rhythmLayout?: 'strip' | 'card'
 }
 
 /** 严重度 → 蓝青的亮度档：亮 = 最严重。 */
@@ -77,7 +94,8 @@ function shortDay(day: string): string {
  * @returns 告警屏内容。
  */
 export function UsageAlertsView(props: UsageAlertsViewProps): ReactNode {
-  const { t, alerts, windowShort, daily, days } = props
+  const { t, alerts, windowShort, daily, days, rhythm } = props
+  const rhythmLayout = props.rhythmLayout ?? 'strip'
 
   const totals = dailyTotals(daily ?? [])
   const avg = totals.length === 0 ? 0 : totals.reduce((sum, value) => sum + value, 0) / totals.length
@@ -382,6 +400,14 @@ export function UsageAlertsView(props: UsageAlertsViewProps): ReactNode {
           </span>
         )}
       </div>
+      {/*
+        节律（竖屏形态）：挤在这一张卡的最后一行。
+        这张卡讲的就是「用量的形状」——周末差、连着用了几天、峰谷比，
+        跟折线是同一件事的两种说法。
+      */}
+      {rhythm !== undefined && rhythmLayout === 'strip' && (
+        <UsageRhythmCard t={t} rhythm={rhythm} variant="strip" />
+      )}
     </div>
   )
 
@@ -390,6 +416,9 @@ export function UsageAlertsView(props: UsageAlertsViewProps): ReactNode {
       {summary}
       {recent}
       {trend}
+      {rhythm !== undefined && rhythmLayout === 'card' && (
+        <UsageRhythmCard t={t} rhythm={rhythm} variant="card" />
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@
  * 面板上摆一个带 `≈` 的金额，看起来像账单，其实只是个量级猜测，
  * 猜错了还要背锅。**本插件只报 token，不报钱。**
  */
-import type { UsageBuckets, UsageDailyPoint } from '../../protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
 
 /**
  * 缓存命中率：缓存读取占「输入总量」的比例。
@@ -22,6 +22,47 @@ export function hitRate(buckets: UsageBuckets): number {
   const input = buckets.uncachedInputTokens + buckets.cacheReadTokens
   if (input <= 0) return 0
   return buckets.cacheReadTokens / input
+}
+
+/** 一个模型的命中率与它占窗口的份额。 */
+export interface ModelHitRate {
+  /** 该模型的用量（provider/model）。 */
+  provider: UsageProviderTotal
+  /** 命中率（0–1）。 */
+  rate: number
+  /** 四桶总和。 */
+  total: number
+  /** 占窗口总量的百分比（0–100）。 */
+  share: number
+}
+
+/**
+ * 每个模型各自算一遍缓存命中率。
+ *
+ * 全局命中率是**加权平均**：量大的模型说了算。
+ * 但真正该关心的是「量跑在哪儿」——一个只占 5% 的模型命中再低也无所谓，
+ * 一个扛着 30% 的量却命中最低，它就是最该修的那一个。
+ * 所以这里按模型拆开，让面板能单独说这件事。
+ * @param providers - 按 provider/model 的拆分。
+ * @param windowTotal - 当前窗口的总量（四桶之和）。
+ * @returns 每个模型的命中率与份额，顺序跟 `providers` 一致。
+ */
+export function modelHitRates(
+  providers: readonly UsageProviderTotal[],
+  windowTotal: number,
+): ModelHitRate[] {
+  return providers.map((provider) => {
+    const total = provider.uncachedInputTokens
+      + provider.outputTokens
+      + provider.cacheReadTokens
+      + provider.cacheWriteTokens
+    return {
+      provider,
+      rate: hitRate(provider),
+      total,
+      share: windowTotal > 0 ? (total / windowTotal) * 100 : 0,
+    }
+  })
 }
 
 /** 一串数的平均值。 */

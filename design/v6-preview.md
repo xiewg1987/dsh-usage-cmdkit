@@ -10,10 +10,17 @@
 
 ![宽版 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
 
+![宽版 Top 屏 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x720.png)
+
+![宽版告警屏 1280×960 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-1280x960.png)
+
 > 成图：`design/dsh-cmdkit-v6-360x800.png`（总览，360×800，2 倍图 720×1600）、
 > `design/dsh-cmdkit-v6-top-360x800.png`、`design/dsh-cmdkit-v6-alerts-360x800.png`、
 > `design/dsh-cmdkit-v6-loading-360x800.png`（Loading 骨架态），
-> 与 `design/dsh-cmdkit-v6-1280x720.png`（宽版，1280×720，2 倍图 2560×1440）。
+> 与 `design/dsh-cmdkit-v6-1280x720.png`（宽版总览，2 倍图 2560×1440）、
+> `design/dsh-cmdkit-v6-top-1280x720.png`（宽版 Top）、
+> `design/dsh-cmdkit-v6-alerts-1280x960.png`（宽版告警）。
+> 宽版告警的内容高度 912px，720 装不下，所以那一稿按实际高度出 1280×960。
 > 本文件说明这些图**是什么**、**怎么来的**、每一块对应实现的哪段代码，
 > 以及与 `design/v6-visual-direction.md` 的**实现偏差**。
 
@@ -28,6 +35,8 @@ design/_v6_src/preview-360-top.tsx    # 竖屏入口：Top
 design/_v6_src/preview-360-alerts.tsx # 竖屏入口：告警
 design/_v6_src/preview-360-loading.tsx# 竖屏入口：Loading 骨架态
 design/_v6_src/preview-1280.tsx       # 宽版入口：同一份 mock，宽版组件
+design/_v6_src/preview-1280-top.tsx   # 宽版入口：Top
+design/_v6_src/preview-1280-alerts.tsx# 宽版入口：告警
 design/_v6_src/mock.ts                # 几套预览共用的确定性 mock
 design/_v6_src/render-preview.mjs     # esbuild 打包 → Chrome(CDP) → 截图
 ```
@@ -46,8 +55,8 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 
 | 变量 | 作用 | 默认 |
 |---|---|---|
-| `PREVIEW_ENTRY` | 入口：`preview-360` / `preview-360-top` / `preview-360-alerts` / `preview-360-loading` / `preview-1280` | `preview-360` |
-| `PREVIEW_W` / `PREVIEW_H` | 画布尺寸（试矮侧栏用 `PREVIEW_H=700`） | 按入口（360×800 / 1280×720） |
+| `PREVIEW_ENTRY` | 入口：`preview-360` / `preview-360-top` / `preview-360-alerts` / `preview-360-loading` / `preview-1280` / `preview-1280-top` / `preview-1280-alerts` | `preview-360` |
+| `PREVIEW_W` / `PREVIEW_H` | 画布尺寸（试矮侧栏用 `PREVIEW_H=700`；宽版 Top / 告警入口的 tag 落在画布表外，**要自己给尺寸**） | 按入口（360×800 / 1280×720） |
 | `PREVIEW_SCALE` | 截图倍率 | 2 |
 | `PREVIEW_OUT` | 输出路径 | 按入口（`dsh-cmdkit-v6-<tag>.png`） |
 | `PREVIEW_DEV=1` | 用 React 开发版渲染（报错带组件栈） | 关 |
@@ -60,6 +69,15 @@ Web Animations 的入场与 rAF 的数字滚动都不推进，数字会停在 0�
 $env:PREVIEW_ENTRY='preview-360-top';    $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-360x800.png';     node design/_v6_src/render-preview.mjs
 $env:PREVIEW_ENTRY='preview-360-alerts'; $env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-360x800.png';  node design/_v6_src/render-preview.mjs
 $env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-loading-360x800.png'; node design/_v6_src/render-preview.mjs
+```
+
+宽版 Top / 告警两屏：这两个入口的 tag（`1280-top` / `1280-alerts`）不在画布表里，
+**必须显式给 `PREVIEW_W` / `PREVIEW_H`**，否则会退回 360×800：
+
+```bash
+$env:PREVIEW_W='1280'; $env:PREVIEW_H='720'
+$env:PREVIEW_ENTRY='preview-1280-top';   $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-1280x720.png';   node design/_v6_src/render-preview.mjs
+$env:PREVIEW_ENTRY='preview-1280-alerts';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-1280x960.png'; node design/_v6_src/render-preview.mjs   # 这一屏内容 912px，按实际高度出 960
 ```
 
 > `design/_v6_src/` 是本地工作区（不进版本库），与 `design/_v4_src/` 同理。
@@ -103,16 +121,16 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 ```
 UsageHeader = 品牌行 + 发丝线 + 控件行（视图分段 + 时间窗药丸）
   ├─ overview  总览   大数 + 命中率环 → 指标块 → 四行遥测 → 洞察
-  ├─ top       Top    头部份额环 + 三枚指标块 → BY MODEL → BY PROVIDER
-  └─ alerts    告警   条数与分级 → 最近清单 → 每日总量趋势
+  ├─ top       Top    头部份额环 + 三枚指标块 → BY MODEL（带命中列）→ BY PROVIDER
+  └─ alerts    告警   条数与分级 → 最近清单 → 每日总量趋势（末尾挂一行节律）
 loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 ```
 
 | 屏 | 关键读数 | 实现位置 |
 |---|---|---|
 | 总览 | `742.6K` + 命中率环 36.5% + TODAY/7 DAYS + 四行遥测 + 洞察 | `UsageCompact.tsx` |
-| Top | `TOP SHARE 53.9%`（头部模型占窗口总量）+ PER MODEL / PEAK DAY / CACHE HIT + 模型与来源排行 | `UsageTopView.tsx` |
-| 告警 | 条数与 HIGH/MED/LOW 分级 + 每条告警的说明与量级条 + 每日总量趋势卡 | `UsageAlertsView.tsx` |
+| Top | `TOP SHARE 53.9%`（头部模型占窗口总量）+ PER MODEL / PEAK DAY / CACHE HIT + 模型与来源排行，**模型排行多一列「命中」** | `UsageTopView.tsx` |
+| 告警 | 条数与 HIGH/MED/LOW 分级 + 每条告警的说明与量级条 + 每日总量趋势卡，**趋势卡末尾一行节律** | `UsageAlertsView.tsx` |
 | 骨架 | 块（白 5%）与条（白 15%）的轮廓，随视图变形态 | `UsageSkeleton.tsx` |
 
 告警的**数字全是推出来的**（`usage-alerts.ts`）：峰值日与日均的比、
@@ -143,6 +161,56 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 - **涨跌签** = 当前窗口的**日均** vs 前一个等长窗口的日均。
   30 日窗没有 60 日可比，就退成「后 15 天 vs 前 15 天」；
   **比不出来就不画**——空的标签比没有标签更让人分心。
+
+## 两组新统计：分模型命中率与节律
+
+### 分模型命中率（Top 屏）
+
+全局命中率是**加权平均**：量大的模型说了算。但真正该关心的是「量跑在哪儿」——
+一个只占 5% 的模型命中再低也无所谓，扛着 30% 的量却命中最低，它才是该修的那一个。
+
+`UsageSummary.byProvider` 的每一项**本来就带着完整四桶**，所以这组数字
+不用新开数据通路，`usage-metrics.ts` 的 `modelHitRates()` 派生即可：
+
+| 模型 | 用量 | 占比 | 命中率 |
+|---|---|---|---|
+| deepseek / chat | 400,200 | 53.9% | 39.3% |
+| deepseek / reasoner | 223,000 | 30.0% | **29.8%** |
+| openai / gpt-5 | 119,408 | 16.1% | 40.4% |
+
+- **竖屏**：并进 BY MODEL 排行做一列（`hitRateLayout="column"`），
+  上方一句洞察点名「扛着 30% 的量、命中只有 29.8%」的那个模型。
+- **宽版**：独立成一张 CACHE HIT 卡，每行一条命中条，**条上压一根全局命中率的竖线**，
+  直接看出谁在线的下面。
+
+### 节律（告警屏）
+
+`usage-rhythm.ts` 的 `deriveRhythm()` 从 30 日序列推三组形状数字：
+
+- **周末 / 工作日**：两边的日均之比（mock 里周末是工作日的 62%）；
+- **连续活跃**：从末尾往回数连着用了几天，另有几天完全没动；
+- **峰谷比**：峰值 ÷ 中位数（1.35×），另给变异系数（23.4%）。
+
+峰谷比用**中位数**而不是平均数：平均数会被峰值自己拉高，拿它当分母算出来的比值偏小。
+
+- **竖屏**：挤进「每日总量」卡末尾一行（`variant="strip"`）——这张卡讲的就是形状。
+- **宽版**：独立成一张 RHYTHM 卡，三枚指标块（`variant="card"`）。
+
+### 为什么窄屏是「塞进去」、宽版是「独立成卡」
+
+360×800 的竖屏**一屏只装得下这么多**：总览屏的余量只有 30px，
+顶部分段 + 三屏 + 骨架已经是上限。所以新统计在窄屏是**挤进已有的卡**，
+在宽版是**独立成卡**——信息一样，密度不同。
+这跟 `UsageTelemetry` 的 `flat` / `wide` 是同一个做法。
+
+三屏的成图高度都核对过：`contentHeight === clientHeight === 768`，一屏装得下，不切不裁。
+
+### 顺带修掉的排序口径
+
+`byProvider` 以前按 `未缓存输入 + 输出` 排序，但排行行里显示的量、
+TOP SHARE 环里算的占比，**都是四桶之和**。排序依据和显示值不是一回事：
+缓存命中极高的模型会被排到后面，环里算出来的却不是它。
+现已统一成四桶排序（`usage-store.ts` 的 `bucketTotal`）。
 
 ## 视觉规矩
 
@@ -181,10 +249,20 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 | 命中率表盘 72px | **104px** | 表盘是竖屏唯一表达「别处没有的量」的地方（命中率），小到 72 读起来只是个装饰圈。104 占内容区 35%，落在 28–36% 的区间里。 |
 | 洞察卡图标 ⓘ | **灯泡**（Lucide `lightbulb`） | 洞察说的是「这件事说明了什么」，ⓘ 只能表示「这里有说明」。 |
 | 涨跌签用涨跌绿/红 | 竖屏走**界面蓝青** | 竖屏整屏只留一种彩色；方向仍由箭头与正负号说明。宽版不动（涨跌绿/红仍在）。 |
+| （本轮新增）分组命中率 | 竖屏**并进 BY MODEL 做一列**，宽版**独立成 CACHE HIT 卡** | 360 宽的竖屏一屏只装得下这么多（总览余量仅 30px），新统计挤进已有的卡；宽版空间富余，独立成卡。信息一样，密度不同。 |
+| （本轮新增）节律三件套 | 竖屏挤进「每日总量」卡末尾一行，宽版**独立成 RHYTHM 卡** | 同上。节律讲的是「形状」，跟每日总量是同一件事的两种说法，所以竖屏挂在那张卡里。 |
 
 ---
 
 # 宽版（1280×720）
+
+宽版与竖屏一样是**三屏**（总览 / Top / 告警），共用 `UsageHeader`。
+成图有三张：总览 `dsh-cmdkit-v6-1280x720.png`、Top `dsh-cmdkit-v6-top-1280x720.png`、
+告警 `dsh-cmdkit-v6-alerts-1280x960.png`（这一屏内容 912px，按实际高度出图）。
+
+宽版 Top / 告警是**单列的卡流**（跟竖屏同一套组件），宽版靠卡片自己换行：
+窄列叠一列，宽列并两三列。宽版放得下，**新统计就独立成卡**：
+Top 屏多一张 CACHE HIT 卡，告警屏多一张 RHYTHM 卡。
 
 ## 宽版为什么是独立组件
 
@@ -260,8 +338,10 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 - **Figma 变量与组件还没建**：v6 视觉方向 §7 步骤 2、3 说要先建变量与 9 个组件，
   实际是把**实现导出的几何**一次性搭成帧——稿子与实现同源已经达成，
   但「可复用组件」这件事还没做。
-- **`TOP` / `ALERTS` 两个视图仍是占位**：分段控件只切选中态。
 - **Figma 里的宽版帧还是旧的**：帧 `78:3290` 里那枚 3D 环位图（`80:3535`）还没删，
   几何说明页 `44:2626`（Ring / 3D 轨道矩阵）也待清；
   这一轮压掉 bloom 后的新整帧 SVG 也还没导进去。
   等切回对应 Figma 文件、figwright 面板开着时一起收。
+- **Figma 稿子上还没有这两组新统计**：`TOP` / `ALERTS` 两屏在 Figma 那边
+  仍是上一轮之前的样子，分模型命中率与节律只进了实现与成图。
+  补的时候按成图导出的几何走（`PREVIEW_DUMP=1`）。

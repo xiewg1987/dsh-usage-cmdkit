@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import type { UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
 import { MiniGauge } from '../components/UsageMeters.js'
 import { RING_KEYS } from '../components/UsageRing.js'
+import { modelHitRates } from '../data/usage-metrics.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -47,6 +48,39 @@ export interface UsageTopViewProps {
   windowShort: string
   /** 窗口很矮：用更紧的排版。 */
   dense: boolean
+  /**
+   * 命中率的摆法。
+   *
+   * - `card`：一张独立的 CACHE HIT 卡（宽版，空间富余）。
+   * - `column`：并进 BY MODEL 排行做一列（竖屏 360 宽，一屏只装得下这么多）。
+   *
+   * 两种形态**信息一样**，只是密度不同——
+   * 跟 `UsageTelemetry` 的 `flat` / `wide` 是同一个做法。
+   */
+  hitRateLayout?: 'card' | 'column'
+}
+
+/** 卡片的标题微标：跟 BY MODEL / BY PROVIDER 同一套。 */
+function cardTitle(text: string): ReactNode {
+  return (
+    <span
+      style={{
+        fontFamily: FONT_MONO,
+        fontSize: 9,
+        fontWeight: 500,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        color: FAINT,
+      }}
+    >
+      {text}
+    </span>
+  )
+}
+
+/** provider/model 的显示名。 */
+function modelLabel(provider: UsageProviderTotal): string {
+  return `${provider.provider}${provider.model.length > 0 ? ` / ${provider.model}` : ''}`
 }
 
 /** 一行排行：序号 + 名称 + 数值 + 占比 + 量级条。 */
@@ -57,6 +91,8 @@ function RankRow(props: {
   share: number
   /** 量级条的长度（0–1）。 */
   ratio: number
+  /** 命中率（窄屏的紧凑形态多这一列）。 */
+  hitRate?: string
 }): ReactNode {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -94,9 +130,161 @@ function RankRow(props: {
             color: TEXT,
             fontVariantNumeric: 'tabular-nums',
             whiteSpace: 'nowrap',
+            minWidth: 52,
+            textAlign: 'right',
           }}
         >
           {props.value}
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: MUTED,
+            fontVariantNumeric: 'tabular-nums',
+            whiteSpace: 'nowrap',
+            minWidth: 32,
+            textAlign: 'right',
+          }}
+        >
+          {`${props.share}%`}
+        </span>
+        {props.hitRate !== undefined && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: TEXT,
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+              minWidth: 40,
+              textAlign: 'right',
+            }}
+          >
+            {props.hitRate}
+          </span>
+        )}
+      </div>
+      <div
+        aria-hidden="true"
+        style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}
+      >
+        <div
+          style={{
+            width: `${Math.max(0, Math.min(100, props.ratio * 100))}%`,
+            height: '100%',
+            borderRadius: 2,
+            background: ACCENT_CYAN,
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 排行表的列头：只标「占比」和「命中」两列。
+ *
+ * 数值列不用标——它摆在一眼就知道是量的位置。
+ * 有了这一行，「54%」和「39.3%」两个百分数不会被人读混。
+ * @param props - 翻译函数。
+ * @returns 列头行。
+ */
+function RankHeader(props: { t: UsageTranslate }): ReactNode {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+      <span aria-hidden="true" style={{ width: 13, flex: 'none' }} />
+      <span style={{ flex: 1, minWidth: 0 }} />
+      <span
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 8,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: FAINT,
+          whiteSpace: 'nowrap',
+          minWidth: 52,
+          textAlign: 'right',
+        }}
+      >
+        {props.t('top.colTotal')}
+      </span>
+      <span
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 8,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: FAINT,
+          whiteSpace: 'nowrap',
+          minWidth: 32,
+          textAlign: 'right',
+        }}
+      >
+        {props.t('top.colShare')}
+      </span>
+      <span
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 8,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: FAINT,
+          whiteSpace: 'nowrap',
+          minWidth: 40,
+          textAlign: 'right',
+        }}
+      >
+        {props.t('top.colHit')}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * 一行命中率：名称 + 命中率 + 它占的份额，条上压一根全局参考线。
+ *
+ * 参考线是这行的重点：全局命中率是加权平均，
+ * 光看「谁 29.8%、谁 40.4%」得自己心算，
+ * 有一根线标着全局位置，就能直接看出谁在线的下面。
+ * @param props - 名称、命中率、份额与全局命中率。
+ * @returns 命中率行。
+ */
+function HitRateRow(props: {
+  label: string
+  /** 命中率（0–1）。 */
+  rate: number
+  /** 占窗口总量的百分比（0–100）。 */
+  share: number
+  /** 全局命中率（0–1）：条上那根参考线。 */
+  globalRate: number
+}): ReactNode {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 11.5,
+            color: '#cbd5e4',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}
+        >
+          {props.label}
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: TEXT,
+            fontVariantNumeric: 'tabular-nums',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {`${(props.rate * 100).toFixed(1)}%`}
         </span>
         <span
           style={{
@@ -109,19 +297,30 @@ function RankRow(props: {
             textAlign: 'right',
           }}
         >
-          {`${props.share}%`}
+          {`${props.share.toFixed(0)}%`}
         </span>
       </div>
       <div
         aria-hidden="true"
-        style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}
+        style={{ position: 'relative', height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}
       >
         <div
           style={{
-            width: `${Math.max(0, Math.min(100, props.ratio * 100))}%`,
+            width: `${Math.max(0, Math.min(100, props.rate * 100))}%`,
             height: '100%',
             borderRadius: 2,
             background: ACCENT_CYAN,
+          }}
+        />
+        {/* 全局命中率：条上的那根竖线。 */}
+        <span
+          style={{
+            position: 'absolute',
+            left: `${Math.max(0, Math.min(100, props.globalRate * 100))}%`,
+            top: 0,
+            width: 1,
+            height: '100%',
+            background: 'rgba(255,255,255,0.55)',
           }}
         />
       </div>
@@ -152,6 +351,13 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
   const topShare = models.length === 0 ? 0 : percentOf(models[0].value, total)
   /** 单模型均量：总量摊到每个模型上。 */
   const perModel = models.length === 0 ? 0 : total / models.length
+  /** 每个模型各自的缓存命中率（`byProvider` 本来就带着四桶）。 */
+  const hitRates = modelHitRates(providers, total)
+  /** 命中率的摆法：独立成卡（宽版）还是并进排行做一列（竖屏）。 */
+  const column = (props.hitRateLayout ?? 'card') === 'column'
+  /** 某个 provider/model 的命中率；找不到就是 0。 */
+  const hitRateOf = (provider: string, model: string): number =>
+    hitRates.find((item) => item.provider.provider === provider && item.provider.model === model)?.rate ?? 0
   /** 峰值日：窗口里日总量最高的那天。 */
   const peakDay = (daily ?? []).reduce((max, point) => {
     const sum = RING_KEYS.reduce((acc, key) => acc + point[key], 0)
@@ -273,6 +479,32 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
     </div>
   )
 
+  /**
+   * 命中率的结论。
+   *
+   * 只说**量大的那个低命中的模型**：一个只占 5% 的模型命中再低也无所谓，
+   * 扛着 30% 的量却压在线下面，那个才是值得动手的。
+   * 命中都差不多的时候就说「差不多」，不硬凑结论。
+   */
+  const weakest = hitRates.length > 0
+    ? hitRates.reduce((min, item) => (item.rate < min.rate ? item : min))
+    : null
+  const strongest = hitRates.length > 0
+    ? hitRates.reduce((max, item) => (item.rate > max.rate ? item : max))
+    : null
+  const hitRateInsight = hitRates.length < 2 || weakest === null || strongest === null
+    ? null
+    : weakest.share >= 20
+      ? t('top.hitRateLow', {
+        model: modelLabel(weakest.provider),
+        rate: `${(weakest.rate * 100).toFixed(1)}%`,
+        share: weakest.share.toFixed(0),
+      })
+      : t('top.hitRateEven', {
+        min: `${(weakest.rate * 100).toFixed(1)}%`,
+        max: `${(strongest.rate * 100).toFixed(1)}%`,
+      })
+
   /** 按模型排行。 */
   const modelCard = (
     <div
@@ -286,18 +518,13 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
         gap: 10,
       }}
     >
-      <span
-        style={{
-          fontFamily: FONT_MONO,
-          fontSize: 9,
-          fontWeight: 500,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: FAINT,
-        }}
-      >
-        {t('top.byModel')}
-      </span>
+      {cardTitle(t('top.byModel'))}
+      {column && hitRateInsight !== null && (
+        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
+          {hitRateInsight}
+        </p>
+      )}
+      {column && models.length > 0 && <RankHeader t={t} />}
       {models.length === 0 && (
         <span style={{ fontSize: 11.5, color: MUTED }}>{t('provider.unknown')}</span>
       )}
@@ -305,10 +532,47 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
         <RankRow
           key={`${model.provider.provider}/${model.provider.model}`}
           index={String(index + 1).padStart(2, '0')}
-          label={`${model.provider.provider}${model.provider.model.length > 0 ? ` / ${model.provider.model}` : ''}`}
+          label={modelLabel(model.provider)}
           value={formatCount(model.value)}
           share={percentOf(model.value, total)}
           ratio={total > 0 ? model.value / total : 0}
+          hitRate={column
+            ? `${(hitRateOf(model.provider.provider, model.provider.model) * 100).toFixed(1)}%`
+            : undefined}
+        />
+      ))}
+    </div>
+  )
+
+  /** 分模型缓存命中率：量在谁身上，命中在谁身上。 */
+  const hitRateCard = (
+    <div
+      style={{
+        padding: '13px 14px',
+        borderRadius: RADIUS.md,
+        background: CARD,
+        border: `1px solid ${CARD_EDGE}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      {cardTitle(t('top.hitRate'))}
+      {hitRateInsight !== null && (
+        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
+          {hitRateInsight}
+        </p>
+      )}
+      {hitRates.length === 0 && (
+        <span style={{ fontSize: 11.5, color: MUTED }}>{t('provider.unknown')}</span>
+      )}
+      {hitRates.map((item) => (
+        <HitRateRow
+          key={`${item.provider.provider}/${item.provider.model}`}
+          label={modelLabel(item.provider)}
+          rate={item.rate}
+          share={item.share}
+          globalRate={rate}
         />
       ))}
     </div>
@@ -357,7 +621,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
       {hero}
       {metrics}
-      {/* 两张卡并排：窄栏自动叠成一列，宽栏并成两列。 */}
+      {/* 卡片并排：窄栏自动叠成一列，宽栏并成两三列。 */}
       <div
         style={{
           display: 'grid',
@@ -367,6 +631,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
         }}
       >
         {modelCard}
+        {column ? null : hitRateCard}
         {providerCard}
       </div>
     </div>

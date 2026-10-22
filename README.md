@@ -111,6 +111,16 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 告警的数字**全是推出来的**（峰值、占比爬升、增速掉队），
 不满足阈值就不报——面板只报 token，不报钱，也不假装有事。
 
+这一轮又补了两组**本来就在数据里、只是没被用起来**的统计：
+
+- **分模型缓存命中率**（Top 屏）：全局命中率是加权平均，量大的模型说了算；
+  真正该看的是「量跑在哪儿」——所以每个模型各算各的。
+  竖屏并进模型排行做一列，宽版独立成一张 `CACHE HIT` 卡。
+- **节律**（告警屏）：周末比工作日省多少、连着用了几天、峰谷比（峰值÷中位数）。
+
+窄屏一屏只装得下这么多，所以窄屏**挤进已有的卡**、宽版**独立成卡**——
+信息一样，密度不同。三屏都核对过高度，一屏装得下，不切不裁。
+
 > 逐块对照表、视觉规矩与**实现偏差**见 [design/v6-preview.md](https://github.com/xiewg1987/dsh-usage-cmdkit/blob/main/design/v6-preview.md)。
 
 ### v6 · 宽栏重做（1280×720）
@@ -121,6 +131,12 @@ DSH Web 右侧栏多一个「用量」Tab。视觉基调是「暗色金融终端
 环**只留色、不留外发光**——四段桶色弧是 v6 令牌允许的位置，但弧上没有辉光、环心没有能量核。
 
 ![宽版 1280×720](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
+
+宽版也是三屏。Top 屏多一张 `CACHE HIT` 卡，告警屏多一张 `RHYTHM` 卡：
+
+| 宽版 Top | 宽版告警 |
+|---|---|
+| ![宽版 Top](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x720.png) | ![宽版告警](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-1280x960.png) |
 
 > 宽版是**独立组件**（`src/client/views/UsageWide.tsx`），不是把竖屏拉宽：
 > 环的大小是**量出来的**（面板比一屏高多少就把环压小多少），
