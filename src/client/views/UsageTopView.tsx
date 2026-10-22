@@ -2,20 +2,21 @@
  * Top 屏：谁把 token 花了。
  *
  * 总览屏回答「用得怎么样」，这一屏回答「花在哪」：
- * 头部一个模型占多少（TOP SHARE 环）、每个模型的量、
- * 以及按来源汇总后的账——三张卡，**同一套卡片语言**，跟总览屏读起来是一家人。
+ * 头部一个模型占多少（TOP SHARE 环）、每个模型的量与缓存命中、
+ * 每个模型 30 日的走向（谁在抢份额）——同一套卡片语言，跟总览屏读起来是一家人。
  *
- * 数字全部来自真实的 provider/model 拆分（`UsageSummary.byProvider`），
+ * 数字全部来自真实的 provider/model 拆分（`UsageSummary.byProvider`
+ * 与它的逐日序列 `UsageSummary.dailyByProvider`），
  * 环上的百分比是**头部模型占窗口总量**的份额——
  * 它跟下面第一行的百分比重复不了：行里写的是这个模型的量，环里写的是它的权重。
  *
  * 组件自己不绑 locale：`t` 由调用方传进来。
  */
 import type { ReactNode } from 'react'
-import type { UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
-import { MiniGauge } from '../components/UsageMeters.js'
+import type { UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
+import { MiniGauge, Sparkline } from '../components/UsageMeters.js'
 import { RING_KEYS } from '../components/UsageRing.js'
-import { modelHitRates } from '../data/usage-metrics.js'
+import { modelHitRates, modelShareShift } from '../data/usage-metrics.js'
 import {
   ACCENT_CYAN,
   CARD,
@@ -44,20 +45,23 @@ export interface UsageTopViewProps {
   rate: number
   /** 日序列（峰值日用）。 */
   daily?: readonly UsageDailyPoint[]
+  /** 每个 provider/model 的逐日序列（模型走向用）。 */
+  dailyByProvider?: readonly UsageProviderDaily[]
   /** 当前时间窗的短标签（30D / 7D）。 */
   windowShort: string
   /** 窗口很矮：用更紧的排版。 */
   dense: boolean
   /**
-   * 命中率的摆法。
+   * 版面密度。
    *
-   * - `card`：一张独立的 CACHE HIT 卡（宽版，空间富余）。
-   * - `column`：并进 BY MODEL 排行做一列（竖屏 360 宽，一屏只装得下这么多）。
+   * - `wide`：空间富余——命中率独立成 `CACHE HIT` 卡，按来源卡也留着。
+   * - `compact`：竖屏 360 宽，一屏只装得下这么多——
+   *   命中率并进 `BY MODEL` 排行做一列，按来源卡让位给「模型走向」卡。
    *
-   * 两种形态**信息一样**，只是密度不同——
+   * 两种密度**信息一样**（只是摆法不同）——
    * 跟 `UsageTelemetry` 的 `flat` / `wide` 是同一个做法。
    */
-  hitRateLayout?: 'card' | 'column'
+  layout?: 'compact' | 'wide'
 }
 
 /** 卡片的标题微标：跟 BY MODEL / BY PROVIDER 同一套。 */
@@ -353,8 +357,10 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
   const perModel = models.length === 0 ? 0 : total / models.length
   /** 每个模型各自的缓存命中率（`byProvider` 本来就带着四桶）。 */
   const hitRates = modelHitRates(providers, total)
-  /** 命中率的摆法：独立成卡（宽版）还是并进排行做一列（竖屏）。 */
-  const column = (props.hitRateLayout ?? 'card') === 'column'
+  /** 每个 provider/model 各自的份额变化与日序列。 */
+  const shifts = modelShareShift(props.dailyByProvider ?? [])
+  /** 版面密度：窄屏（compact）挤进已有的卡，宽版独立成卡。 */
+  const compact = (props.layout ?? 'wide') === 'compact'
   /** 某个 provider/model 的命中率；找不到就是 0。 */
   const hitRateOf = (provider: string, model: string): number =>
     hitRates.find((item) => item.provider.provider === provider && item.provider.model === model)?.rate ?? 0
@@ -519,12 +525,12 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
       }}
     >
       {cardTitle(t('top.byModel'))}
-      {column && hitRateInsight !== null && (
+      {compact && hitRateInsight !== null && (
         <p style={{ margin: 0, fontSize: 11, lineHeight: 1.6, color: 'rgba(214,222,235,0.88)' }}>
           {hitRateInsight}
         </p>
       )}
-      {column && models.length > 0 && <RankHeader t={t} />}
+      {compact && models.length > 0 && <RankHeader t={t} />}
       {models.length === 0 && (
         <span style={{ fontSize: 11.5, color: MUTED }}>{t('provider.unknown')}</span>
       )}
@@ -536,7 +542,7 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
           value={formatCount(model.value)}
           share={percentOf(model.value, total)}
           ratio={total > 0 ? model.value / total : 0}
-          hitRate={column
+          hitRate={compact
             ? `${(hitRateOf(model.provider.provider, model.provider.model) * 100).toFixed(1)}%`
             : undefined}
         />
@@ -578,9 +584,91 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
     </div>
   )
 
-  /** 按来源汇总。 */
-  const providerCard = (
+  /**
+   * 模型走向：每个模型 30 日的微折线 + 份额变化。
+   *
+   * 「谁在抢份额、谁在让份额」只有逐日序列能算：
+   * `byProvider` 只给 30 日合计，看不出模型之间在换手。
+   * 份额是**相对**的——一个模型涨份额，别的必然让出。
+   */
+  const trendCard = (
     <div
+      style={{
+        padding: '13px 14px',
+        borderRadius: RADIUS.md,
+        background: CARD,
+        border: `1px solid ${CARD_EDGE}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        {cardTitle(t('top.trend'))}
+        <span
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 8.5,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: FAINT,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {t('top.trendUnit')}
+        </span>
+      </div>
+      {shifts.length === 0 && (
+        <span style={{ fontSize: 11.5, color: MUTED }}>{t('provider.unknown')}</span>
+      )}
+      {shifts.map((item) => (
+        <div
+          key={item.label}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}
+        >
+          <span
+            style={{
+              fontSize: 11.5,
+              color: '#cbd5e4',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
+            {item.label}
+          </span>
+          {item.series.length > 1 && (
+            <Sparkline
+              values={item.series}
+              width={compact ? 44 : 96}
+              height={12}
+              color={ACCENT_CYAN}
+              dot={0}
+              strokeWidth={1.2}
+            />
+          )}
+          <span
+            style={{
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: TEXT,
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+              minWidth: 44,
+              textAlign: 'right',
+            }}
+          >
+            {item.shift === null ? '—' : `${item.shift >= 0 ? '+' : ''}${item.shift.toFixed(1)}`}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+
+  /** 按来源汇总。 */
+  const providerCard = (    <div
       style={{
         padding: '13px 14px',
         borderRadius: RADIUS.md,
@@ -621,18 +709,30 @@ export function UsageTopView(props: UsageTopViewProps): ReactNode {
     <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
       {hero}
       {metrics}
-      {/* 卡片并排：窄栏自动叠成一列，宽栏并成两三列。 */}
+      {/*
+        卡片并排。
+
+        窄栏（360 宽）：两张卡叠成一列——BY MODEL 带命中列，底下是模型走向。
+        「按来源」在窄栏让位：它那两行是模型行按 provider 求和的结果，
+        模型名里本来就带着 provider，信息是重复的；
+        而模型走向是**新的一维**，位置给它更值。
+
+        宽栏：四张卡并成两列两行，每张都有横向余量。
+      */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          // `min(400px, 100%)`：窄栏只有 326px 可用，
+          // 死写 400px 会让整张网格横向溢出（卡片被裁掉右边一截）。
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
           gap: SPACE.md,
           alignItems: 'start',
         }}
       >
         {modelCard}
-        {column ? null : hitRateCard}
-        {providerCard}
+        {compact ? null : hitRateCard}
+        {trendCard}
+        {compact ? null : providerCard}
       </div>
     </div>
   )

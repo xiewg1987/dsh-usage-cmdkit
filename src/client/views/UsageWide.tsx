@@ -21,7 +21,7 @@
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
 import {
   Insight,
   ProviderList,
@@ -117,6 +117,8 @@ export interface UsageWideProps {
   d7Total: number
   /** 按来源的拆分。 */
   providers: readonly UsageProviderTotal[]
+  /** 每个 provider/model 的逐日序列（Top 屏的模型走向用）。 */
+  dailyByProvider?: readonly UsageProviderDaily[]
   /** 当前视图：总览 / Top / 告警。 */
   view: UsageView
   /** 切视图。 */
@@ -163,6 +165,7 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
     todayTotal,
     d7Total,
     providers,
+    dailyByProvider,
     view,
     onView,
     windowShort,
@@ -532,10 +535,12 @@ export function UsageWideView(props: UsageWideProps): ReactNode {
                 t={t}
                 total={total}
                 providers={providers}
+                dailyByProvider={dailyByProvider}
                 rate={hitRate(buckets)}
                 daily={daily}
                 windowShort={windowShort}
                 dense={dense}
+                layout="wide"
               />
             </div>
           ) : (

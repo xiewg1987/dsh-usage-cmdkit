@@ -34,6 +34,24 @@ export interface UsageDailyPoint extends UsageBuckets {
   day: string
 }
 
+/**
+ * 一个 provider/model 的逐日序列。
+ *
+ * `byProvider` 只给 30 日的**合计**——看不出这个模型是在涨还是在退。
+ * 这一层把每天的用量也带上，才能算出「谁在抢份额」。
+ */
+export interface UsageProviderDaily {
+  provider: string
+  model: string
+  /**
+   * 近 30 个日历日的每日四桶，**从旧到新**。
+   *
+   * 与 `UsageSummary.daily` **同长同序**（同一天下标对齐），
+   * 缺记录的日子补零——与全局日序列同一套规矩。
+   */
+  daily: UsageDailyPoint[]
+}
+
 /** 汇总响应：三个时间窗的总量 + 按 provider 的拆分 + 日序列。 */
 export interface UsageSummary {
   /** 今日（宿主本地日历日）。 */
@@ -51,6 +69,13 @@ export interface UsageSummary {
    * 跳过空日会把断档画成直线，看不出真实起伏。
    */
   daily: UsageDailyPoint[]
+  /**
+   * 每个 provider/model 的逐日序列，按总量从大到小。
+   *
+   * 与 `byProvider` 一一对应（同一个模型就在同一位置），
+   * 多了时间维度：模型之间「谁在涨、谁在退」只有这一层能算。
+   */
+  dailyByProvider: UsageProviderDaily[]
   /** 汇总生成时刻（毫秒时间戳）。 */
   generatedAt: number
 }
@@ -103,6 +128,13 @@ function isDailyPoint(value: unknown): value is UsageDailyPoint {
     && DAY_KEY.test((value as UsageDailyPoint).day)
 }
 
+function isProviderDaily(value: unknown): value is UsageProviderDaily {
+  if (!isRecord(value)) return false
+  if (typeof value.provider !== 'string') return false
+  if (typeof value.model !== 'string') return false
+  return Array.isArray(value.daily) && value.daily.every(isDailyPoint)
+}
+
 /**
  * 校验 Host 读回的汇总响应。
  *
@@ -115,5 +147,6 @@ export function isUsageSummary(value: unknown): value is UsageSummary {
   if (!isBuckets(value.today) || !isBuckets(value.d7) || !isBuckets(value.d30)) return false
   if (!Array.isArray(value.byProvider) || !value.byProvider.every(isProviderTotal)) return false
   if (!Array.isArray(value.daily) || !value.daily.every(isDailyPoint)) return false
+  if (!Array.isArray(value.dailyByProvider) || !value.dailyByProvider.every(isProviderDaily)) return false
   return isCount(value.generatedAt)
 }

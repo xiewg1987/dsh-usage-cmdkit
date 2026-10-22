@@ -30,7 +30,7 @@
  * 视觉口径见 `design/v6-visual-direction.md`。
  */
 import { useEffect, useMemo, useRef, type ReactNode, type Ref } from 'react'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal } from '../../protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
 import { Insight, StatusFooter } from '../components/UsageChrome.js'
 import { UsageHeader, USAGE_VIEWS, type UsageView } from '../components/UsageHeader.js'
 import { UsageSkeleton } from '../components/UsageSkeleton.js'
@@ -120,6 +120,8 @@ export interface UsageCompactProps {
   d7Total: number
   /** 按 provider/model 的拆分（Top 屏用）。 */
   providers: readonly UsageProviderTotal[]
+  /** 每个 provider/model 的逐日序列（Top 屏的模型走向用）。 */
+  dailyByProvider?: readonly UsageProviderDaily[]
   /** 当前视图。 */
   view: UsageView
   /** 切视图。 */
@@ -170,6 +172,7 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
     todayTotal,
     d7Total,
     providers,
+    dailyByProvider,
     view,
     onView,
     loading,
@@ -358,11 +361,12 @@ export function UsageCompactView(props: UsageCompactProps): ReactNode {
       t={t}
       total={total}
       providers={providers}
+      dailyByProvider={dailyByProvider}
       rate={rate}
       daily={daily}
       windowShort={windowShort}
       dense={dense}
-      hitRateLayout="column"
+      layout="compact"
     />
   ) : view === 'alerts' ? (
     <UsageAlertsView

@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import type { TurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
-import type { UsageBuckets, UsageDailyPoint, UsageProviderTotal, UsageSummary } from './protocol.js'
+import type { UsageBuckets, UsageDailyPoint, UsageProviderDaily, UsageProviderTotal, UsageSummary } from './protocol.js'
 
 /** 与 Web「本轮用量」一致的四桶 */
 export interface TokenBuckets {
@@ -284,6 +284,34 @@ export function summarize(file: UsageStatsFile, nowMs: number = Date.now()): Usa
   }
 
   /**
+   * 每个 provider/model 的逐日序列。
+   *
+   * **数据本来就在盘上**：`DayRollup.byProvider` 每天每模型都存了四桶，
+   * 这里只是把它按天摊开——不迁数据、不改文件格式。
+   *
+   * 缺记录的日子补零，与全局日序列同一套规矩：
+   * 那天这个模型没用，就是零，不是「没有记录」。
+   */
+  const dailyByProvider = new Map<string, UsageProviderDaily>()
+  for (let offset = WINDOWS.d30 - 1; offset >= 0; offset--) {
+    const dayKey = dayKeyOffset(nowMs, -offset)
+    const day = file.days[dayKey]
+    // 先登记当天出现过的模型（哪怕当天是零，也要占住这个位置）。
+    for (const key of Object.keys(day?.byProvider ?? {})) {
+      if (dailyByProvider.has(key)) continue
+      const { provider, model } = splitProviderKey(key)
+      dailyByProvider.set(key, { provider, model, daily: [] })
+    }
+  }
+  for (const [key, entry] of dailyByProvider) {
+    for (let offset = WINDOWS.d30 - 1; offset >= 0; offset--) {
+      const dayKey = dayKeyOffset(nowMs, -offset)
+      const buckets = file.days[dayKey]?.byProvider[key] ?? zeroBuckets()
+      entry.daily.push({ day: dayKey, ...buckets })
+    }
+  }
+
+  /**
    * 日序列：从旧到新，缺记录的日子补零。
    *
    * 补零而不是跳过：客户端要画折线，跳过空日会把断档连成直线，
@@ -316,6 +344,16 @@ export function summarize(file: UsageStatsFile, nowMs: number = Date.now()): Usa
      */
     byProvider: [...byProvider.values()].sort((a, b) => bucketTotal(b) - bucketTotal(a)),
     daily,
+    /**
+     * 逐模型的日序列，顺序与 `byProvider` 一致（同一个模型就在同一位置）。
+     *
+     * 先按 `byProvider` 的名次排，再把日序列挂上去——
+     * 两份列表必须能对上号，否则「排行第 2 的模型」和「日序列第 2 条」会错位。
+     */
+    dailyByProvider: [...byProvider.keys()]
+      .sort((a, b) => bucketTotal(byProvider.get(b) ?? zeroBuckets()) - bucketTotal(byProvider.get(a) ?? zeroBuckets()))
+      .map((key) => dailyByProvider.get(key))
+      .filter((entry): entry is UsageProviderDaily => entry !== undefined),
     generatedAt: nowMs,
   }
 }

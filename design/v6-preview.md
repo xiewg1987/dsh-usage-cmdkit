@@ -10,7 +10,7 @@
 
 ![宽版 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-1280x720.png)
 
-![宽版 Top 屏 1280×720 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x720.png)
+![宽版 Top 屏 1280×768 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-top-1280x768.png)
 
 ![宽版告警屏 1280×960 预览](https://raw.githubusercontent.com/xiewg1987/dsh-usage-cmdkit/main/design/dsh-cmdkit-v6-alerts-1280x960.png)
 
@@ -18,9 +18,10 @@
 > `design/dsh-cmdkit-v6-top-360x800.png`、`design/dsh-cmdkit-v6-alerts-360x800.png`、
 > `design/dsh-cmdkit-v6-loading-360x800.png`（Loading 骨架态），
 > 与 `design/dsh-cmdkit-v6-1280x720.png`（宽版总览，2 倍图 2560×1440）、
-> `design/dsh-cmdkit-v6-top-1280x720.png`（宽版 Top）、
+> `design/dsh-cmdkit-v6-top-1280x768.png`（宽版 Top）、
 > `design/dsh-cmdkit-v6-alerts-1280x960.png`（宽版告警）。
-> 宽版告警的内容高度 912px，720 装不下，所以那一稿按实际高度出 1280×960。
+> 宽版 Top 的内容高度 720px、告警 912px，720 装不下，
+> 所以那两稿按实际高度出 1280×768 与 1280×960。
 > 本文件说明这些图**是什么**、**怎么来的**、每一块对应实现的哪段代码，
 > 以及与 `design/v6-visual-direction.md` 的**实现偏差**。
 
@@ -75,9 +76,10 @@ $env:PREVIEW_ENTRY='preview-360-loading';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-
 **必须显式给 `PREVIEW_W` / `PREVIEW_H`**，否则会退回 360×800：
 
 ```bash
-$env:PREVIEW_W='1280'; $env:PREVIEW_H='720'
-$env:PREVIEW_ENTRY='preview-1280-top';   $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-1280x720.png';   node design/_v6_src/render-preview.mjs
-$env:PREVIEW_ENTRY='preview-1280-alerts';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-1280x960.png'; node design/_v6_src/render-preview.mjs   # 这一屏内容 912px，按实际高度出 960
+$env:PREVIEW_W='1280'; $env:PREVIEW_H='768'
+$env:PREVIEW_ENTRY='preview-1280-top';   $env:PREVIEW_OUT='design/dsh-cmdkit-v6-top-1280x768.png';   node design/_v6_src/render-preview.mjs
+$env:PREVIEW_W='1280'; $env:PREVIEW_H='960'
+$env:PREVIEW_ENTRY='preview-1280-alerts';$env:PREVIEW_OUT='design/dsh-cmdkit-v6-alerts-1280x960.png'; node design/_v6_src/render-preview.mjs
 ```
 
 > `design/_v6_src/` 是本地工作区（不进版本库），与 `design/_v4_src/` 同理。
@@ -121,7 +123,7 @@ node design/_v6_src/make-figma-frame.mjs 1280                       # 拼成整�
 ```
 UsageHeader = 品牌行 + 发丝线 + 控件行（视图分段 + 时间窗药丸）
   ├─ overview  总览   大数 + 命中率环 → 指标块 → 四行遥测 → 洞察
-  ├─ top       Top    头部份额环 + 三枚指标块 → BY MODEL（带命中列）→ BY PROVIDER
+  ├─ top       Top    头部份额环 + 三枚指标块 → BY MODEL（带命中列）→ 模型走向
   └─ alerts    告警   条数与分级 → 最近清单 → 每日总量趋势（末尾挂一行节律）
 loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 ```
@@ -129,8 +131,9 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 | 屏 | 关键读数 | 实现位置 |
 |---|---|---|
 | 总览 | `742.6K` + 命中率环 36.5% + TODAY/7 DAYS + 四行遥测 + 洞察 | `UsageCompact.tsx` |
-| Top | `TOP SHARE 53.9%`（头部模型占窗口总量）+ PER MODEL / PEAK DAY / CACHE HIT + 模型与来源排行，**模型排行多一列「命中」** | `UsageTopView.tsx` |
+| Top | `TOP SHARE 53.9%`（头部模型占窗口总量）+ PER MODEL / PEAK DAY / CACHE HIT + 模型排行（**多一列「命中」**）+ 模型走向（微折线 + 份额变化） | `UsageTopView.tsx` |
 | 告警 | 条数与 HIGH/MED/LOW 分级 + 每条告警的说明与量级条 + 每日总量趋势卡，**趋势卡末尾一行节律** | `UsageAlertsView.tsx` |
+| 骨架 | 块（白 5%）与条（白 15%）的轮廓，随视图变形态 | `UsageSkeleton.tsx` |
 | 骨架 | 块（白 5%）与条（白 15%）的轮廓，随视图变形态 | `UsageSkeleton.tsx` |
 
 告警的**数字全是推出来的**（`usage-alerts.ts`）：峰值日与日均的比、
@@ -178,7 +181,7 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 | deepseek / reasoner | 223,000 | 30.0% | **29.8%** |
 | openai / gpt-5 | 119,408 | 16.1% | 40.4% |
 
-- **竖屏**：并进 BY MODEL 排行做一列（`hitRateLayout="column"`），
+- **竖屏**：并进 BY MODEL 排行做一列（`layout="compact"`），
   上方一句洞察点名「扛着 30% 的量、命中只有 29.8%」的那个模型。
 - **宽版**：独立成一张 CACHE HIT 卡，每行一条命中条，**条上压一根全局命中率的竖线**，
   直接看出谁在线的下面。
@@ -211,6 +214,39 @@ loading = true 时，身体换成骨架（UsageSkeleton），头与底栏照旧
 TOP SHARE 环里算的占比，**都是四桶之和**。排序依据和显示值不是一回事：
 缓存命中极高的模型会被排到后面，环里算出来的却不是它。
 现已统一成四桶排序（`usage-store.ts` 的 `bucketTotal`）。
+
+## 第三组统计：模型走向（Top 屏）
+
+`byProvider` 只给 30 日**合计**——看不出这个模型是在涨还是在退。
+但**数据本来就在盘上**：`DayRollup.byProvider` 每天每模型都存了四桶，
+只是 `summarize()` 把它压成了一份累计。
+
+于是协议加了一个字段（`src/protocol.ts`）：
+
+```ts
+dailyByProvider: UsageProviderDaily[]   // 每个 provider/model 的 30 日四桶
+```
+
+- **不迁数据、不改文件格式**：宿主只是把已有的日 rollup 按模型摊开。
+- 顺序与 `byProvider` 一一对应（同一个模型在同一位置），
+  否则「排行第 2 的模型」和「日序列第 2 条」会错位。
+- 缺记录的日子补零，与全局日序列同一套规矩。
+
+客户端据此算出**份额变化**（`usage-metrics.ts` 的 `modelShareShift`）：
+近 7 日的份额 vs 前 7 日的份额，差多少个百分点。
+
+份额是**相对**的——一个模型涨份额，别的必然让出；
+而且总量同时在涨的模型，份额变化会被稀释，
+那不是「它在退」而是「大家都在涨」。两个数摆在一起才看得出来。
+
+mock 里的故事：gpt-5 抢份额（+3.1pt），reasoner 让份额（-1.8pt）。
+
+- **窄屏**：一张「模型走向」卡，每行 = 名称 + 30 日微折线 + 份额变化。
+- **宽版**：同一张卡，折线画宽一倍（96px），四张卡并成两列两行。
+
+**窄屏拿「按来源」卡换了位置**：那张卡的两行是模型行按 provider 求和的结果，
+模型名里本来就带着 provider，信息是重复的；模型走向是**新的一维**，位置给它更值。
+宽版放得下，两张都留。
 
 ## 视觉规矩
 
@@ -251,18 +287,19 @@ TOP SHARE 环里算的占比，**都是四桶之和**。排序依据和显示值
 | 涨跌签用涨跌绿/红 | 竖屏走**界面蓝青** | 竖屏整屏只留一种彩色；方向仍由箭头与正负号说明。宽版不动（涨跌绿/红仍在）。 |
 | （本轮新增）分组命中率 | 竖屏**并进 BY MODEL 做一列**，宽版**独立成 CACHE HIT 卡** | 360 宽的竖屏一屏只装得下这么多（总览余量仅 30px），新统计挤进已有的卡；宽版空间富余，独立成卡。信息一样，密度不同。 |
 | （本轮新增）节律三件套 | 竖屏挤进「每日总量」卡末尾一行，宽版**独立成 RHYTHM 卡** | 同上。节律讲的是「形状」，跟每日总量是同一件事的两种说法，所以竖屏挂在那张卡里。 |
+| （本轮新增）模型走向 | 竖屏**用模型走向换掉按来源卡**，宽版两张都留 | 竖屏一屏只装得下两张卡。按来源那两行是模型行按 provider 求和的结果（模型名里本来就带着 provider），信息是重复的；模型走向是新的一维。 |
 
 ---
 
 # 宽版（1280×720）
 
 宽版与竖屏一样是**三屏**（总览 / Top / 告警），共用 `UsageHeader`。
-成图有三张：总览 `dsh-cmdkit-v6-1280x720.png`、Top `dsh-cmdkit-v6-top-1280x720.png`、
+成图有三张：总览 `dsh-cmdkit-v6-1280x720.png`、Top `dsh-cmdkit-v6-top-1280x768.png`、
 告警 `dsh-cmdkit-v6-alerts-1280x960.png`（这一屏内容 912px，按实际高度出图）。
 
 宽版 Top / 告警是**单列的卡流**（跟竖屏同一套组件），宽版靠卡片自己换行：
 窄列叠一列，宽列并两三列。宽版放得下，**新统计就独立成卡**：
-Top 屏多一张 CACHE HIT 卡，告警屏多一张 RHYTHM 卡。
+Top 屏多一张 CACHE HIT 卡和一张 MODEL TREND 卡，告警屏多一张 RHYTHM 卡。
 
 ## 宽版为什么是独立组件
 

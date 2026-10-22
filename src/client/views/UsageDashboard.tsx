@@ -29,7 +29,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { UsageBuckets, UsageProviderTotal } from '../../protocol.js'
+import type { UsageBuckets, UsageProviderDaily, UsageProviderTotal } from '../../protocol.js'
 import { RING_KEYS } from '../components/UsageRing.js'
 import { UsageCompactView } from './UsageCompact.js'
 import { UsageWideView } from './UsageWide.js'
@@ -175,6 +175,12 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
     [summary],
   )
 
+  /** 每个 provider/model 的逐日序列：Top 屏的「模型走向」用。 */
+  const dailyByProvider = useMemo<readonly UsageProviderDaily[]>(
+    () => summary?.dailyByProvider ?? [],
+    [summary],
+  )
+
   const shown = buckets ?? EMPTY_BUCKETS
   const total = useMemo<number>(
     () => RING_KEYS.reduce((sum, key) => sum + shown[key], 0),
@@ -308,6 +314,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
         todayTotal={todayTotal}
         d7Total={d7Total}
         providers={providers}
+        dailyByProvider={dailyByProvider}
         view={view}
         onView={setView}
         loading={status === 'loading'}
@@ -352,6 +359,7 @@ export function UsageDashboard({ t }: UsageDashboardProps): ReactNode {
       todayTotal={todayTotal}
       d7Total={d7Total}
       providers={providers}
+      dailyByProvider={dailyByProvider}
       view={view}
       onView={setView}
       windowShort={windowShort}
