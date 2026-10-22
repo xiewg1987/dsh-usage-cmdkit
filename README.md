@@ -175,11 +175,14 @@ pnpm dsh web
 从 npm 装：
 
 ```powershell
-npm i -g dsh-usage-meters
 cd D:\ScriptProject\deepseek-harness
-pnpm dsh plugin --profile web add dsh-usage-meters
+pnpm dsh plugin --profile web add dsh-usage-meters --registry=https://registry.npmjs.org/
 pnpm dsh web
 ```
+
+> **显式走 npmjs**：`--registry=` 会被透传给 pnpm。淘宝源（npmmirror）同步有延迟，
+> `0.1.0` 还没同步上之前，它的 `latest` 指向 npm 暂存机制自动留下的 `0.0.0-stage`
+> 占位版（338 B 的空壳）——照默认源装，插件是空的。淘宝源同步到位后这个参数可以去掉。
 
 装载完在 DSH Web 右侧栏就能看到「用量」Tab。
 
