@@ -1,0 +1,18 @@
+[
+  { "command": "file.new", "params": { "name": "DSH Meters v7" } },
+  {
+    "command": "frame.create",
+    "params": {
+      "name": "v7 · Compact 360×800",
+      "width": 360,
+      "height": 800,
+      "x": 0,
+      "y": 0,
+      "props": { "fills": [{ "type": "solid", "color": "#0f1419" }] }
+    }
+  },
+  {
+    "command": "file.saveAs",
+    "params": { "path": "D:\\Code\\WebCode\\dsh-usage-meters\\design\\dsh-meters-v7.figcraft" }
+  }
+]

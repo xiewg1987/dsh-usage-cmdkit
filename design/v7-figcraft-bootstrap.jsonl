@@ -1,0 +1,14 @@
+{"command":"file.new","params":{"name":"DSH Meters v7"}}
+{"command":"frame.create","params":{"name":"v7 · Overview 360×800","width":360,"height":800,"x":0,"y":0,"props":{"fills":[{"type":"solid","color":"#0f1419"}]}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":16,"y":16,"name":"Brand","text":"DSH Meters · Usage","props":{"fontSize":13,"fontWeight":600,"fills":[{"type":"solid","color":"#e8ecf4"}]}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":16,"y":44,"name":"Nav hint","text":"总览 · Top · 告警          今日  7日  30日","props":{"fontSize":11,"fills":[{"type":"solid","color":"#9aa3b2"}]}}}
+{"command":"shape.rectangle","params":{"parent":"v7 · Overview 360×800","x":16,"y":80,"width":328,"height":120,"name":"Card/Hero","props":{"cornerRadius":12,"fills":[{"type":"solid","color":"#161b26"}],"strokes":[{"type":"solid","color":"#2a3140"}],"strokeWeight":1}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":28,"y":92,"name":"Hero label","text":"TOKENS · 30 DAYS","props":{"fontSize":10,"letterSpacing":0.08,"fills":[{"type":"solid","color":"#9aa3b2"}]}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":28,"y":112,"name":"Hero value","text":"742.6K","props":{"fontSize":36,"fontWeight":700,"fills":[{"type":"solid","color":"#e8ecf4"}]}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":28,"y":158,"name":"Hero note","text":"v7: 堆叠条主视觉（替代表盘）→ 见 v7-visual-direction.md","props":{"fontSize":10,"fills":[{"type":"solid","color":"#5b9fd4"}]}}}
+{"command":"shape.rectangle","params":{"parent":"v7 · Overview 360×800","x":28,"y":220,"width":80,"height":8,"name":"Bar/uncached","props":{"cornerRadius":4,"fills":[{"type":"solid","color":"#4c8dff"}]}}}
+{"command":"shape.rectangle","params":{"parent":"v7 · Overview 360×800","x":112,"y":220,"width":48,"height":8,"name":"Bar/output","props":{"cornerRadius":4,"fills":[{"type":"solid","color":"#22c55e"}]}}}
+{"command":"shape.rectangle","params":{"parent":"v7 · Overview 360×800","x":164,"y":220,"width":64,"height":8,"name":"Bar/cacheRead","props":{"cornerRadius":4,"fills":[{"type":"solid","color":"#a855f7"}]}}}
+{"command":"shape.rectangle","params":{"parent":"v7 · Overview 360×800","x":232,"y":220,"width":24,"height":8,"name":"Bar/cacheWrite","props":{"cornerRadius":4,"fills":[{"type":"solid","color":"#f59e0b"}]}}}
+{"command":"node.create","params":{"type":"text","parent":"v7 · Overview 360×800","x":16,"y":760,"name":"Footer","text":"● synced · updated 22:15","props":{"fontSize":9,"fills":[{"type":"solid","color":"#9aa3b2"}]}}}
+{"command":"file.saveAs","params":{"path":"D:\\Code\\WebCode\\dsh-usage-meters\\design\\dsh-meters-v7.figcraft"}}
