@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-10-22
 
+> **已定版（tag `v0.2.0`）但尚未发布到 npm** —— npm 与淘宝源的 `latest` 仍为 `0.1.1`。
+> 本节描述的是仓库 HEAD 的能力；想用请从 Git 装。
+
 ### Notes
 
 - **0.1 历史数据可能含重复计数**：`warning.code = "legacy"` 表示盘上的 `byProvider` 是按 0.1 语义写的——

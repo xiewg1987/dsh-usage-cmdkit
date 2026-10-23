@@ -73,6 +73,11 @@ pnpm dsh web
 > 若你的机器上 `latest` 还指向 `0.0.0-stage`（镜像滞后时 npm 暂存机制留下的空壳占位版），
 > 加 `--registry=https://registry.npmjs.org/` 强制走 npmjs——该参数会被透传给 pnpm。
 
+> **版本状态**：仓库当前版本为 **0.2.0**（已打 tag `v0.2.0`），**尚未发布到 npm**——
+> npm 与淘宝源的 `latest` 仍是 `0.1.1`。
+> 上文「数据怎么来」里的 `__mixed__` 归因与读盘异常提示是 **0.2.0 才有的能力**：
+> **从 Git 装才能拿到**，从 npm 装拿到的是 0.1.1。
+
 装载完在 DSH Web 右侧栏就能看到「用量」Tab。
 
 > 同一个 profile 里 `plugin add` 与 `--patch` **不要混用**：patch 形式的 `name: './src/index.ts'` 不会挂载浏览器半（client half）。
