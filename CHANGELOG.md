@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-10-22
 
+### Notes
+
+- **0.1 历史数据可能含重复计数**：`warning.code = "legacy"` 表示盘上的 `byProvider` 是按 0.1 语义写的——
+  一个 turn 若走了多个 provider（重试 / fallback），整轮用量被记到了每个 provider 上，于是
+  `sum(byProvider) > total`。**新写入的数据不再重复**，但历史聚合值无法自动还原。
+  若你的用量跨多个 provider 且出现过重试 / fallback，把 profile 下的 `usage-stats.json`
+  改名备份（例如 `usage-stats.json.bak`）让它从头记即可；单 provider 的用户无需处理。
+
 ### Added
 
 - **数字可信**：多路由 turn 记入 `__mixed__`；窗口切换时 provider / 告警 / 指标块与同一日历窗对齐。
